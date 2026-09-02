@@ -15,10 +15,38 @@ fn main() {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             let overlay = app.get_webview_window("overlay").expect("overlay window");
             overlay.set_ignore_cursor_events(true)?;
+
+            // Restore window position and size
+            if let Ok(path) = oryx::config_path(app.handle()) {
+                let cfg = config::load(&path);
+                if let Some(r) = &cfg.window {
+                    use tauri::{LogicalPosition, LogicalSize};
+                    let _ = overlay.set_position(LogicalPosition::new(r.x, r.y));
+                    let _ = overlay.set_size(LogicalSize::new(r.w, r.h));
+                }
+            }
+
             watcher::spawn(app.handle().clone());
             grab::spawn(app.handle().clone());
             tray::build(app.handle())?;
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if window.label() != "overlay" {
+                return;
+            }
+            if matches!(event, tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_)) {
+                let app = window.app_handle();
+                let Ok(path) = oryx::config_path(app) else { return; };
+                let mut cfg = config::load(&path);
+                let scale = window.scale_factor().unwrap_or(1.0);
+                if let (Ok(pos), Ok(size)) = (window.outer_position(), window.inner_size()) {
+                    let pos = pos.to_logical::<f64>(scale);
+                    let size = size.to_logical::<f64>(scale);
+                    cfg.window = Some(config::WindowRect { x: pos.x, y: pos.y, w: size.width, h: size.height });
+                    let _ = config::save(&path, &cfg);
+                }
+            }
         })
         .invoke_handler(tauri::generate_handler![
             oryx::refresh_layout,
