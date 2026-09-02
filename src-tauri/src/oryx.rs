@@ -5,6 +5,12 @@ use tauri::{AppHandle, Manager};
 const GRAPHQL_URL: &str = "https://oryx.zsa.io/graphql";
 const QUERY: &str = "query getLayout($hashId: String!, $revisionId: String!, $geometry: String) { layout(hashId: $hashId, revisionId: $revisionId, geometry: $geometry) { title revision { title config layers { position title keys } } } }";
 
+#[derive(Clone)]
+enum FetchError {
+    NotFound(String),
+    Transport(String),
+}
+
 pub fn parse_layout_hash(input: &str) -> Option<String> {
     let s = input.trim();
     if s.is_empty() {
@@ -27,15 +33,21 @@ pub fn parse_layout_hash(input: &str) -> Option<String> {
     }
 }
 
-pub fn config_path(app: &AppHandle) -> PathBuf {
-    app.path().app_config_dir().expect("config dir").join("config.json")
+pub fn config_path(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .app_config_dir()
+        .map(|dir| dir.join("config.json"))
+        .map_err(|e| e.to_string())
 }
 
-fn cache_path(app: &AppHandle) -> PathBuf {
-    app.path().app_config_dir().expect("config dir").join("layout.json")
+fn cache_path(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .app_config_dir()
+        .map(|dir| dir.join("layout.json"))
+        .map_err(|e| e.to_string())
 }
 
-async fn fetch_from_oryx(hash: &str) -> Result<Value, String> {
+async fn fetch_from_oryx(hash: &str) -> Result<Value, FetchError> {
     let body = json!({
         "query": QUERY,
         "variables": { "hashId": hash, "revisionId": "latest", "geometry": "voyager" }
@@ -45,12 +57,12 @@ async fn fetch_from_oryx(hash: &str) -> Result<Value, String> {
         .json(&body)
         .send()
         .await
-        .map_err(|e| format!("network: {e}"))?
+        .map_err(|e| FetchError::Transport(format!("network: {e}")))?
         .json()
         .await
-        .map_err(|e| format!("bad response: {e}"))?;
+        .map_err(|e| FetchError::Transport(format!("bad response: {e}")))?;
     if resp.pointer("/data/layout").map(|v| v.is_null()).unwrap_or(true) {
-        return Err(format!("layout '{hash}' not found on Oryx"));
+        return Err(FetchError::NotFound(format!("layout '{hash}' not found on Oryx")));
     }
     Ok(resp)
 }
@@ -58,20 +70,27 @@ async fn fetch_from_oryx(hash: &str) -> Result<Value, String> {
 #[tauri::command]
 pub async fn refresh_layout(app: AppHandle, url: String) -> Result<Value, String> {
     let hash = parse_layout_hash(&url).ok_or("not a valid Oryx layout URL or hash")?;
-    let cache = cache_path(&app);
+    let cache = cache_path(&app)?;
     match fetch_from_oryx(&hash).await {
         Ok(v) => {
-            let mut c = crate::config::load(&config_path(&app));
+            let cfg_path = config_path(&app)?;
+            let mut c = crate::config::load(&cfg_path);
             c.oryx_url = hash;
             c.last_refresh = Some(chrono_free_now());
-            crate::config::save(&config_path(&app), &c).map_err(|e| e.to_string())?;
-            std::fs::write(&cache, serde_json::to_string(&v).unwrap()).map_err(|e| e.to_string())?;
+            crate::config::save(&cfg_path, &c).map_err(|e| e.to_string())?;
+            let json_str = serde_json::to_string(&v).map_err(|e| e.to_string())?;
+            std::fs::write(&cache, json_str).map_err(|e| e.to_string())?;
             Ok(v)
         }
-        Err(e) => {
+        Err(FetchError::NotFound(e)) => {
+            Err(e)
+        }
+        Err(FetchError::Transport(e)) => {
             let cached = std::fs::read_to_string(&cache).map_err(|_| e.clone())?;
             let mut v: Value = serde_json::from_str(&cached).map_err(|_| e)?;
-            v["stale"] = json!(true);
+            if let Value::Object(ref mut obj) = v {
+                obj.insert("stale".to_string(), json!(true));
+            }
             Ok(v)
         }
     }
@@ -79,19 +98,20 @@ pub async fn refresh_layout(app: AppHandle, url: String) -> Result<Value, String
 
 #[tauri::command]
 pub async fn load_layout(app: AppHandle) -> Result<Value, String> {
-    let cache = cache_path(&app);
+    let cache = cache_path(&app)?;
     if let Ok(s) = std::fs::read_to_string(&cache) {
         if let Ok(v) = serde_json::from_str::<Value>(&s) {
             return Ok(v);
         }
     }
-    let hash = crate::config::load(&config_path(&app)).oryx_url;
+    let hash = crate::config::load(&config_path(&app)?).oryx_url;
     refresh_layout(app, hash).await
 }
 
 #[tauri::command]
-pub fn get_config(app: AppHandle) -> crate::config::Config {
-    crate::config::load(&config_path(&app))
+pub fn get_config(app: AppHandle) -> Result<crate::config::Config, String> {
+    let cfg_path = config_path(&app)?;
+    Ok(crate::config::load(&cfg_path))
 }
 
 fn chrono_free_now() -> String {
