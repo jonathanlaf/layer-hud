@@ -51,7 +51,15 @@ export function renderBoard(layoutJson, config) {
       const custom = key.customLabel;
       const tap = document.createElement('span');
       tap.className = 'tap';
-      tap.textContent = translateSlot(key.tap ? { ...key.tap, customLabel: custom } : key.tap);
+      // A hold-only key (e.g. a bare Ctrl/⌘ home-row modifier) has no tap:
+      // its hold action IS the key, so promote it to the main label.
+      let tapText = key.tap ? translateSlot({ ...key.tap, customLabel: custom }) : (custom || '');
+      let holdPromoted = false;
+      if (!tapText && key.hold) {
+        tapText = translateSlot(key.hold);
+        holdPromoted = true;
+      }
+      tap.textContent = tapText;
       k.appendChild(tap);
       const shifted = shiftLabel(key.tap ? { ...key.tap, customLabel: custom } : key.tap);
       if (shifted) {
@@ -61,6 +69,11 @@ export function renderBoard(layoutJson, config) {
         k.appendChild(s);
       }
       for (const [slot, cls] of [['hold', 'hold'], ['doubleTap', 'dtap'], ['tapHold', 'thold']]) {
+        if (slot === 'hold' && holdPromoted) {
+          if (key.hold.layer !== null && key.hold.layer !== undefined)
+            k.dataset.triggersLayer = key.hold.layer;
+          continue;
+        }
         if (key[slot]) {
           const s = document.createElement('span');
           s.className = cls;
