@@ -8,20 +8,8 @@ const MOD_ORDER = ['cmd', 'alt', 'ctrl', 'shift'];
 const comboText = (arr) => arr.map((m) => MOD_LABELS[m]).join('') || '—';
 
 $('oryx').value = cfg.oryx_url;
-$('opacity').value = cfg.opacity;
-$('opacity-val').textContent = cfg.opacity;
-$('char-opacity').value = cfg.char_opacity;
-$('char-opacity-val').textContent = cfg.char_opacity;
-$('border-opacity').value = cfg.border_opacity;
-$('border-opacity-val').textContent = cfg.border_opacity;
-$('border-width').value = cfg.border_width;
-$('border-width-val').textContent = cfg.border_width;
 $('bg-color').value = cfg.bg_color;
 $('key-fill-color').value = cfg.key_fill_color;
-$('key-fill-opacity').value = cfg.key_fill_opacity;
-$('key-fill-opacity-val').textContent = cfg.key_fill_opacity;
-$('padding').value = cfg.padding;
-$('padding-val').textContent = cfg.padding;
 $('text-color').value = cfg.text_color;
 $('legend-color').value = cfg.legend_color;
 $('border-color').value = cfg.border_color;
@@ -35,24 +23,73 @@ async function push() {
   await invoke('set_config', { config: cfg });
 }
 
-const bind = (id, field, parse = (v) => v, valId = null) => {
-  $(id).addEventListener('input', async (e) => {
-    cfg[field] = parse(e.target.value);
-    if (valId) $(valId).textContent = cfg[field];
-    await push();
-  });
+// Shared mutate-then-persist step used by every binding below, so there's
+// one place that owns "a setting changed" instead of each binding re-deriving it.
+async function commit(field, value) {
+  cfg[field] = value;
+  await push();
+}
+
+const bind = (id, field) => {
+  $(id).addEventListener('input', (e) => commit(field, e.target.value));
 };
-bind('opacity', 'opacity', Number, 'opacity-val');
-bind('char-opacity', 'char_opacity', Number, 'char-opacity-val');
-bind('border-opacity', 'border_opacity', Number, 'border-opacity-val');
-bind('border-width', 'border_width', Number, 'border-width-val');
 bind('bg-color', 'bg_color');
 bind('key-fill-color', 'key_fill_color');
-bind('key-fill-opacity', 'key_fill_opacity', Number, 'key-fill-opacity-val');
-bind('padding', 'padding', Number, 'padding-val');
 bind('text-color', 'text_color');
 bind('legend-color', 'legend_color');
 bind('border-color', 'border_color');
+
+// Numeric settings: slider + manual text entry, kept in sync both ways.
+// Every keystroke commits immediately (like the slider) so a value typed
+// then the window closed before blur isn't lost; the box's own text is only
+// touched when a keystroke actually needed sanitizing, so the caret isn't
+// forced to the end on ordinary typing.
+const clampNum = (v, min, max) => Math.min(max, Math.max(min, v));
+const bindNumeric = (id, field) => {
+  const slider = $(id);
+  const box = $(id + '-val');
+  const min = Number(slider.min);
+  const max = Number(slider.max);
+  const step = Number(slider.step) || 1;
+  const stepDecimals = (String(step).split('.')[1] || '').length;
+  const roundToStep = (v) => Number((Math.round(v / step) * step).toFixed(stepDecimals));
+  slider.value = cfg[field];
+  box.value = cfg[field];
+  const apply = (v) => {
+    cfg[field] = v;
+    slider.value = v;
+    box.value = v;
+    return commit(field, v);
+  };
+  slider.addEventListener('input', (e) => apply(Number(e.target.value)));
+  box.addEventListener('input', () => {
+    const before = box.value;
+    const digitsAndDot = before.replace(/[^0-9.]/g, '');
+    const firstDot = digitsAndDot.indexOf('.');
+    const sanitized = firstDot === -1
+      ? digitsAndDot
+      : digitsAndDot.slice(0, firstDot + 1) + digitsAndDot.slice(firstDot + 1).replace(/\./g, '');
+    if (sanitized !== before) {
+      const caret = box.selectionStart - (before.length - sanitized.length);
+      box.value = sanitized;
+      box.setSelectionRange(caret, caret);
+    }
+    const v = parseFloat(sanitized);
+    if (Number.isFinite(v)) commit(field, clampNum(roundToStep(v), min, max));
+  });
+  box.addEventListener('change', () => {
+    const v = parseFloat(box.value);
+    box.value = Number.isFinite(v) ? clampNum(roundToStep(v), min, max) : cfg[field];
+  });
+};
+for (const [id, field] of [
+  ['opacity', 'opacity'],
+  ['char-opacity', 'char_opacity'],
+  ['border-opacity', 'border_opacity'],
+  ['key-fill-opacity', 'key_fill_opacity'],
+  ['border-width', 'border_width'],
+  ['padding', 'padding'],
+]) bindNumeric(id, field);
 
 $('colors-toggle').addEventListener('change', async (e) => {
   cfg.use_oryx_colors = e.target.checked;

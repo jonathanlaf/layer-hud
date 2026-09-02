@@ -116,7 +116,8 @@ pub fn get_config(app: AppHandle) -> Result<crate::config::Config, String> {
 }
 
 #[tauri::command]
-pub fn set_config(app: AppHandle, config: crate::config::Config) -> Result<(), String> {
+pub fn set_config(app: AppHandle, mut config: crate::config::Config) -> Result<(), String> {
+    config.clamp();
     crate::config::save(&config_path(&app)?, &config).map_err(|e| e.to_string())?;
     use tauri::Emitter;
     app.emit("config-changed", &config).map_err(|e| e.to_string())
