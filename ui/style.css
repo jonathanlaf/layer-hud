@@ -1,0 +1,4 @@
+html, body { margin: 0; background: transparent; overflow: hidden; }
+#board { color: #fff; font: 13px -apple-system, sans-serif;
+         background: rgba(20, 20, 24, var(--hud-opacity, 0.85));
+         border-radius: 12px; padding: 10px; height: calc(100vh - 20px); }
