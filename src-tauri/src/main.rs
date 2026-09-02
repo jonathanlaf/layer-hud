@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod config;
+mod oryx;
 
 use tauri::Manager;
 
@@ -13,6 +14,11 @@ fn main() {
             overlay.set_ignore_cursor_events(true)?;
             Ok(())
         })
+        .invoke_handler(tauri::generate_handler![
+            oryx::refresh_layout,
+            oryx::load_layout,
+            oryx::get_config
+        ])
         .run(tauri::generate_context!())
         .expect("error while running voyager-hud");
 }
