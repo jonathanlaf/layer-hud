@@ -53,6 +53,17 @@ $('colors-toggle').addEventListener('change', async (e) => {
   await push();
 });
 
+try {
+  $('autostart').checked = await invoke('plugin:autostart|is_enabled');
+} catch { $('autostart').disabled = true; }
+$('autostart').addEventListener('change', async (e) => {
+  try {
+    await invoke(e.target.checked ? 'plugin:autostart|enable' : 'plugin:autostart|disable');
+  } catch {
+    e.target.checked = !e.target.checked;
+  }
+});
+
 let recording = false;
 let maxMods = new Set();
 
