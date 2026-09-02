@@ -80,6 +80,7 @@ pub async fn refresh_layout(app: AppHandle, url: String) -> Result<Value, String
             crate::config::save(&cfg_path, &c).map_err(|e| e.to_string())?;
             let json_str = serde_json::to_string(&v).map_err(|e| e.to_string())?;
             std::fs::write(&cache, json_str).map_err(|e| e.to_string())?;
+            let _ = { use tauri::Emitter; app.emit("layout-refreshed", serde_json::json!({})) };
             Ok(v)
         }
         Err(FetchError::NotFound(e)) => {
@@ -112,6 +113,13 @@ pub async fn load_layout(app: AppHandle) -> Result<Value, String> {
 pub fn get_config(app: AppHandle) -> Result<crate::config::Config, String> {
     let cfg_path = config_path(&app)?;
     Ok(crate::config::load(&cfg_path))
+}
+
+#[tauri::command]
+pub fn set_config(app: AppHandle, config: crate::config::Config) -> Result<(), String> {
+    crate::config::save(&config_path(&app)?, &config).map_err(|e| e.to_string())?;
+    use tauri::Emitter;
+    app.emit("config-changed", &config).map_err(|e| e.to_string())
 }
 
 fn chrono_free_now() -> String {

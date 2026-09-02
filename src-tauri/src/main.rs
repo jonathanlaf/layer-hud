@@ -3,6 +3,7 @@
 mod config;
 mod grab;
 mod oryx;
+mod tray;
 mod watcher;
 
 use tauri::Manager;
@@ -16,12 +17,14 @@ fn main() {
             overlay.set_ignore_cursor_events(true)?;
             watcher::spawn(app.handle().clone());
             grab::spawn(app.handle().clone());
+            tray::build(app.handle())?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             oryx::refresh_layout,
             oryx::load_layout,
-            oryx::get_config
+            oryx::get_config,
+            oryx::set_config
         ])
         .run(tauri::generate_context!())
         .expect("error while running voyager-hud");

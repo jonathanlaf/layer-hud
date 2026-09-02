@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Settings</title>
+<style>
+  body { font: 13px -apple-system, sans-serif; padding: 16px; }
+  label { display: block; margin: 12px 0 4px; font-weight: 600; }
+  input[type=text] { width: 100%; }
+  .error { color: #c00; font-size: 12px; }
+  .ok { color: #080; font-size: 12px; }
+</style></head>
+<body>
+  <label>Oryx layout URL or hash</label>
+  <input type="text" id="oryx" />
+  <button id="apply-url">Fetch &amp; apply</button>
+  <span id="url-status"></span>
+
+  <label>Opacity <span id="opacity-val"></span></label>
+  <input type="range" id="opacity" min="0.2" max="1" step="0.05" />
+
+  <label><input type="checkbox" id="colors" /> Use Oryx layer colors</label>
+
+  <label>Grab hotkey (hold to move/resize)</label>
+  <select id="combo">
+    <option value="cmd,alt">⌘⌥</option>
+    <option value="cmd,ctrl">⌘⌃</option>
+    <option value="alt,ctrl">⌥⌃</option>
+    <option value="cmd">⌘</option>
+    <option value="alt">⌥</option>
+    <option value="ctrl">⌃</option>
+  </select>
+  <script type="module" src="settings.js"></script>
+</body>
+</html>
