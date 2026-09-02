@@ -28,7 +28,7 @@ Tauri v2 menu-bar app (`voyager-hud`, no Dock icon), one overlay window + one se
 
 ### Frontend (plain HTML/CSS/JS, no framework)
 
-- **Keycode translator** — pure function: Oryx key object → display labels. Table-driven from the macOS Canadian–CSA mapping (verified by dumping the OS layout tables via `UCKeyTranslate`), e.g. `CSA_EGRV+Alt` → `\`, `KC_MINUS+Alt` → `|`, `CSA_ECUT+Alt` → `/`, `CSA_AGRV+Alt` → `` ` ``, `KC_COLN` → `:`, `CSA_QEST` → `?`, dead keys marked (`^ dead`). Unknown codes fall back to a cleaned keycode name.
+- **Keycode translator** — pure function: Oryx key object → display labels. Table-driven from the macOS Canadian–CSA mapping (verified by dumping the OS layout tables via `UCKeyTranslate`), e.g. `CSA_EGRV+Alt` → `\`, `KC_MINUS+Alt` → `|`, `CSA_ECUT+Alt` → `/`, `CSA_AGRV+Alt` → `` ` ``, `KC_COLN` → `:`, `CSA_QEST` → `?`, dead keys marked (`^ dead`). Label precedence per key slot: Oryx `customLabel` if set → CSA table translation (resolves baked modifier combos) → cleaned keycode name.
 - **Renderer** — draws both halves in physical Voyager geometry (column stagger + 2-key thumb clusters) using absolutely positioned divs; scales with window size. All layers rendered at startup; layer switch = CSS class flip. Per key: tap label centered, hold label small underneath, double-tap in the top-right corner. Layer-trigger keys highlighted while their layer is active. Non-base layers tint the frame edge for peripheral awareness. Layer-name badge in a corner.
 - **States** — `keymapp-offline`: overlay dims to 40 %, small "Keymapp offline" badge, keeps base layer. Grab mode: brightened border + resize affordance. Unknown layer index: badge shows the number over an empty board.
 
