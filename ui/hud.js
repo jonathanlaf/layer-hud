@@ -84,5 +84,11 @@ async function main() {
   await listen('layout-refreshed', async () => {
     renderBoard(await invoke('load_layout'), await invoke('get_config'));
   });
+  document.getElementById('board').addEventListener('mousedown', (e) => {
+    if (document.body.classList.contains('grab')) {
+      window.__TAURI__.window.getCurrentWindow().startDragging();
+      e.preventDefault();
+    }
+  });
 }
 main();
