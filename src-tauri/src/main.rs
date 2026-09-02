@@ -2,6 +2,7 @@
 
 mod config;
 mod oryx;
+mod watcher;
 
 use tauri::Manager;
 
@@ -12,6 +13,7 @@ fn main() {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             let overlay = app.get_webview_window("overlay").expect("overlay window");
             overlay.set_ignore_cursor_events(true)?;
+            watcher::spawn(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
