@@ -7,12 +7,18 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
 .key { position: absolute; border: 1px solid rgba(255,255,255,0.35); border-radius: 7px;
        box-sizing: border-box; text-align: center; }
 .key .tap { position: absolute; inset: 0; display: flex; align-items: center;
-            justify-content: center; font-size: 16px; }
-.key .hold { position: absolute; bottom: 2px; left: 0; right: 0; font-size: 9px; opacity: 0.75; }
-.key .dtap { position: absolute; top: 1px; right: 4px; font-size: 9px; opacity: 0.75; }
-.key .thold { position: absolute; top: 1px; left: 4px; font-size: 9px; opacity: 0.75; }
+            justify-content: center; font-size: calc(var(--key-unit, 62px) * 0.258); }
+.key .hold { position: absolute; bottom: 2px; left: 0; right: 0;
+             font-size: calc(var(--key-unit, 62px) * 0.145); opacity: 0.75; }
+.key .dtap { position: absolute; top: 1px; right: 4px;
+             font-size: calc(var(--key-unit, 62px) * 0.145); opacity: 0.75; }
+.key .thold { position: absolute; top: 1px; left: 4px;
+              font-size: calc(var(--key-unit, 62px) * 0.145); opacity: 0.75; }
 .key.trigger-active { border-color: #ffd479; box-shadow: 0 0 6px #ffd479; }
 #badge { position: absolute; top: 4px; right: 10px; font-size: 11px; opacity: 0.8; }
+#startup-error { position: absolute; inset: 0; display: flex; align-items: center;
+                 justify-content: center; text-align: center; padding: 12px;
+                 font-size: 13px; opacity: 0.9; }
 body[data-base="0"] #board { outline: 2px solid rgba(120,180,255,0.6); outline-offset: -2px; }
 body.offline #board { opacity: 0.4; }
 body.offline #badge::after { content: " — Keymapp offline"; color: #ff9c9c; }

@@ -3,6 +3,7 @@
 mod config;
 mod grab;
 mod oryx;
+mod state;
 mod tray;
 mod watcher;
 
@@ -11,6 +12,7 @@ use tauri::Manager;
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
+            app.manage(state::HudState::new());
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             let overlay = app.get_webview_window("overlay").expect("overlay window");

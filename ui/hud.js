@@ -4,10 +4,35 @@ import { translateSlot } from './translator.mjs';
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
+// Approximate horizontal/vertical chrome (padding etc.) taken up around the
+// key grid inside #board; kept a rough constant per issue guidance rather
+// than measuring live layout.
+const BOARD_CHROME_PX = 20;
+
+// Layer the HUD should currently show. Updated by the layer-changed listener
+// and re-applied after every renderBoard() so config-only re-renders (e.g. an
+// opacity tick) don't snap the HUD back to layer 0.
+let lastLayer = 0;
+
+// Cached inputs to the last successful render, so a window resize can
+// re-render at the new scale without re-invoking the backend.
+let lastLayout = null;
+let lastConfig = null;
+
+function computeUnit() {
+  const availW = window.innerWidth - BOARD_CHROME_PX;
+  const availH = window.innerHeight - BOARD_CHROME_PX;
+  return Math.min(availW / BOARD_UNITS.w, availH / BOARD_UNITS.h);
+}
+
 export function renderBoard(layoutJson, config) {
+  lastLayout = layoutJson;
+  lastConfig = config;
   const layers = layoutJson.data.layout.revision.layers;
   const board = document.getElementById('board');
   board.innerHTML = '';
+  const unit = computeUnit();
+  board.style.setProperty('--key-unit', `${unit}px`);
   const rects = keyRects();
   const badge = document.createElement('div');
   badge.id = 'badge';
@@ -21,7 +46,7 @@ export function renderBoard(layoutJson, config) {
       const r = rects[i];
       const k = document.createElement('div');
       k.className = 'key';
-      k.style.cssText = `left:${r.x * 62}px;top:${r.y * 62}px;width:${r.w * 62}px;height:${r.h * 62}px`;
+      k.style.cssText = `left:${r.x * unit}px;top:${r.y * unit}px;width:${r.w * unit}px;height:${r.h * unit}px`;
       if (config.use_oryx_colors && key.glowColor) k.style.background = hexTint(key.glowColor);
       const custom = key.customLabel;
       const tap = document.createElement('span');
@@ -42,7 +67,6 @@ export function renderBoard(layoutJson, config) {
     });
     board.appendChild(el);
   }
-  setActiveLayer(0);
 }
 
 function hexTint(hex) {
@@ -67,22 +91,34 @@ export function setOffline(off) {
   document.body.classList.toggle('offline', off);
 }
 
+function showStartupError() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  const msg = document.createElement('div');
+  msg.id = 'startup-error';
+  msg.textContent = 'No layout — set Oryx URL in Settings';
+  board.appendChild(msg);
+}
+
 async function main() {
-  const config = await invoke('get_config');
-  document.documentElement.style.setProperty('--hud-opacity', config.opacity);
-  const layout = await invoke('load_layout');
-  renderBoard(layout, config);
-  if (layout.stale) document.getElementById('badge').textContent += ' (cached)';
-  await listen('layer-changed', (e) => setActiveLayer(e.payload.layer));
+  // Register every listener before doing any startup work that can fail, so
+  // a rejected first load (e.g. offline on first launch, no cached layout
+  // yet) still leaves a live overlay that can recover later.
+  await listen('layer-changed', (e) => {
+    lastLayer = e.payload.layer;
+    setActiveLayer(lastLayer);
+  });
   await listen('keymapp-offline', () => setOffline(true));
   await listen('keymapp-online', () => setOffline(false));
   await listen('grab-mode', (e) => document.body.classList.toggle('grab', e.payload.on));
   await listen('config-changed', async (e) => {
     document.documentElement.style.setProperty('--hud-opacity', e.payload.opacity);
     renderBoard(await invoke('load_layout'), e.payload);
+    setActiveLayer(lastLayer);
   });
   await listen('layout-refreshed', async () => {
     renderBoard(await invoke('load_layout'), await invoke('get_config'));
+    setActiveLayer(lastLayer);
   });
   document.getElementById('board').addEventListener('mousedown', (e) => {
     if (document.body.classList.contains('grab')) {
@@ -90,5 +126,27 @@ async function main() {
       e.preventDefault();
     }
   });
+
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (lastLayout && lastConfig) {
+        renderBoard(lastLayout, lastConfig);
+        setActiveLayer(lastLayer);
+      }
+    }, 100);
+  });
+
+  try {
+    const config = await invoke('get_config');
+    document.documentElement.style.setProperty('--hud-opacity', config.opacity);
+    const layout = await invoke('load_layout');
+    renderBoard(layout, config);
+    setActiveLayer(lastLayer);
+    if (layout.stale) document.getElementById('badge').textContent += ' (cached)';
+  } catch (err) {
+    showStartupError();
+  }
 }
 main();

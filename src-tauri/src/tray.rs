@@ -1,6 +1,6 @@
 use tauri::menu::{CheckMenuItem, Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 
 pub fn build(app: &AppHandle) -> tauri::Result<()> {
     let refresh = MenuItem::with_id(app, "refresh", "Refresh layout", true, None::<&str>)?;
@@ -24,10 +24,17 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
             }
             "pin" => {
                 let pinned = pin_handle.is_checked().unwrap_or(false);
-                if let Some(w) = app.get_webview_window("overlay") {
-                    let _ = w.set_ignore_cursor_events(!pinned);
-                }
-                let _ = app.emit("grab-mode", serde_json::json!({ "on": pinned }));
+                // Only update the shared flag here. Applying the window flag
+                // and emitting grab-mode is left entirely to grab::spawn's
+                // poll loop, which recomputes `grabbed || pinned` every tick
+                // against its own last-applied cache — if tray.rs also wrote
+                // set_ignore_cursor_events/grab-mode directly, the two could
+                // desync (e.g. unchecking pin while the combo is still held
+                // would wrongly force the window non-interactive here, and
+                // the loop's cache would then suppress the correction).
+                app.state::<crate::state::HudState>()
+                    .pinned
+                    .store(pinned, std::sync::atomic::Ordering::SeqCst);
             }
             "settings" => {
                 if app.get_webview_window("settings").is_none() {

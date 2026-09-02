@@ -34,7 +34,7 @@ pub fn combo_active(flags: u64, mask: u64) -> bool {
 #[cfg(target_os = "macos")]
 pub fn spawn(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
-        let mut grabbed = false;
+        let mut last_interactive: Option<bool> = None;
         loop {
             let Ok(path) = crate::oryx::config_path(&app) else {
                 tokio::time::sleep(Duration::from_millis(1000)).await;
@@ -43,13 +43,22 @@ pub fn spawn(app: AppHandle) {
             let cfg = crate::config::load(&path);
             let mask = combo_mask(&cfg.grab_combo);
             let flags = unsafe { CGEventSourceFlagsState(COMBINED_SESSION_STATE) };
-            let active = combo_active(flags, mask);
-            if active != grabbed {
-                grabbed = active;
+            let grabbed = combo_active(flags, mask);
+            let pinned = app
+                .state::<crate::state::HudState>()
+                .pinned
+                .load(std::sync::atomic::Ordering::SeqCst);
+            // The tray "pin" handler and this loop both want a say in whether the
+            // overlay accepts mouse events; recomputing from both inputs every
+            // tick (rather than only reacting to combo transitions) keeps them
+            // from fighting over set_ignore_cursor_events.
+            let interactive = grabbed || pinned;
+            if last_interactive != Some(interactive) {
+                last_interactive = Some(interactive);
                 if let Some(w) = app.get_webview_window("overlay") {
-                    let _ = w.set_ignore_cursor_events(!grabbed);
+                    let _ = w.set_ignore_cursor_events(!interactive);
                 }
-                let _ = app.emit("grab-mode", json!({ "on": grabbed }));
+                let _ = app.emit("grab-mode", json!({ "on": interactive }));
             }
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
