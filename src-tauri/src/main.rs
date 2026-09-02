@@ -20,9 +20,24 @@ fn main() {
             if let Ok(path) = oryx::config_path(app.handle()) {
                 let cfg = config::load(&path);
                 if let Some(r) = &cfg.window {
-                    use tauri::{LogicalPosition, LogicalSize};
-                    let _ = overlay.set_position(LogicalPosition::new(r.x, r.y));
-                    let _ = overlay.set_size(LogicalSize::new(r.w, r.h));
+                    // Validate that the saved position is on a currently available monitor
+                    let on_screen = if let Ok(monitors) = overlay.available_monitors() {
+                        monitors.iter().any(|mon| {
+                            let scale = mon.scale_factor();
+                            let mon_pos = mon.position().to_logical::<f64>(scale);
+                            let mon_size = mon.size().to_logical::<f64>(scale);
+                            r.x >= mon_pos.x && r.x < mon_pos.x + mon_size.width &&
+                            r.y >= mon_pos.y && r.y < mon_pos.y + mon_size.height
+                        })
+                    } else {
+                        false
+                    };
+
+                    if on_screen {
+                        use tauri::{LogicalPosition, LogicalSize};
+                        let _ = overlay.set_position(LogicalPosition::new(r.x, r.y));
+                        let _ = overlay.set_size(LogicalSize::new(r.w, r.h));
+                    }
                 }
             }
 
@@ -44,7 +59,9 @@ fn main() {
                     let pos = pos.to_logical::<f64>(scale);
                     let size = size.to_logical::<f64>(scale);
                     cfg.window = Some(config::WindowRect { x: pos.x, y: pos.y, w: size.width, h: size.height });
-                    let _ = config::save(&path, &cfg);
+                    if let Err(e) = config::save(&path, &cfg) {
+                        eprintln!("voyager-hud: failed to persist window rect: {e}");
+                    }
                 }
             }
         })
