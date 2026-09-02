@@ -14,7 +14,9 @@ pub struct WindowRect {
 pub struct Config {
     pub oryx_url: String,
     pub opacity: f64,
-    pub key_opacity: f64,
+    pub char_opacity: f64,
+    pub border_opacity: f64,
+    pub border_width: f64,
     pub grab_combo: Vec<String>,
     pub use_oryx_colors: bool,
     pub key_fill_color: String,
@@ -33,7 +35,9 @@ impl Default for Config {
         Config {
             oryx_url: "Br3gO".into(),
             opacity: 0.85,
-            key_opacity: 1.0,
+            char_opacity: 1.0,
+            border_opacity: 0.35,
+            border_width: 1.0,
             grab_combo: vec!["cmd".into(), "alt".into()],
             use_oryx_colors: true,
             key_fill_color: "#ffffff".into(),
@@ -75,7 +79,9 @@ mod tests {
         assert_eq!(c.grab_combo, vec!["cmd".to_string(), "alt".to_string()]);
         assert!(c.use_oryx_colors);
         assert!(c.window.is_none());
-        assert_eq!(c.key_opacity, 1.0);
+        assert_eq!(c.char_opacity, 1.0);
+        assert_eq!(c.border_opacity, 0.35);
+        assert_eq!(c.border_width, 1.0);
         assert_eq!(c.bg_color, "#141418");
         assert_eq!(c.key_fill_opacity, 0.0);
         assert_eq!(c.padding, 10.0);
@@ -93,7 +99,9 @@ mod tests {
         let c = load(&path);
         assert_eq!(c.oryx_url, "abc");
         assert_eq!(c.opacity, 0.5);
-        assert_eq!(c.key_opacity, 1.0);
+        assert_eq!(c.char_opacity, 1.0);
+        assert_eq!(c.border_opacity, 0.35);
+        assert_eq!(c.border_width, 1.0);
         assert_eq!(c.bg_color, "#141418");
     }
 

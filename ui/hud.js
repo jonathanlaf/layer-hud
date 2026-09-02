@@ -97,10 +97,11 @@ function hexToRgba(hex, alpha) {
 function applyTheme(config) {
   const st = document.documentElement.style;
   st.setProperty('--board-bg', hexToRgba(config.bg_color, config.opacity));
-  st.setProperty('--key-opacity', config.key_opacity);
+  st.setProperty('--char-opacity', config.char_opacity);
   st.setProperty('--text-color', config.text_color);
   st.setProperty('--legend-color', config.legend_color);
-  st.setProperty('--border-color', hexToRgba(config.border_color, 0.35));
+  st.setProperty('--border-color', hexToRgba(config.border_color, config.border_opacity));
+  st.setProperty('--border-width', `${config.border_width}px`);
   st.setProperty('--key-fill', hexToRgba(config.key_fill_color, config.key_fill_opacity));
 }
 
