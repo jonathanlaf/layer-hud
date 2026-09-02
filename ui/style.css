@@ -1,11 +1,11 @@
 html, body { margin: 0; background: transparent; overflow: hidden; }
 #board { color: var(--text-color, #fff); font: 13px -apple-system, sans-serif;
          background: var(--board-bg, rgba(20, 20, 24, 0.85));
-         border-radius: 12px; padding: 10px; height: calc(100vh - 20px); position: relative; }
+         border-radius: 12px; position: fixed; inset: 0; overflow: hidden; }
 .layer { display: none; opacity: var(--key-opacity, 1); }
 .layer.active { display: block; }
 .key { position: absolute; border: 1px solid var(--border-color, rgba(255,255,255,0.35)); border-radius: 7px;
-       box-sizing: border-box; text-align: center; }
+       box-sizing: border-box; text-align: center; background: var(--key-fill, transparent); }
 .key .tap { position: absolute; inset: 0; display: flex; align-items: center;
             justify-content: center; font-size: calc(var(--key-unit, 62px) * 0.258);
             color: var(--text-color, #fff); }

@@ -2,50 +2,124 @@
 <html>
 <head><meta charset="utf-8"><title>Settings</title>
 <style>
-  body { font: 13px -apple-system, sans-serif; padding: 16px; }
-  label { display: block; margin: 12px 0 4px; font-weight: 600; }
-  input[type=text] { width: 100%; }
-  .error { color: #c00; font-size: 12px; }
-  .ok { color: #080; font-size: 12px; }
-  .colors { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-  .colors div { text-align: center; font-size: 11px; }
-  .colors input { width: 100%; height: 28px; padding: 0; border: none; }
-  .hotkey-row { display: flex; align-items: center; gap: 10px; }
-  #combo-display { font-size: 18px; min-width: 60px; }
-  button { padding: 4px 10px; }
-  .section-gap { margin-top: 18px; }
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    font: 13px -apple-system, "SF Pro Text", sans-serif;
+    margin: 0; padding: 16px 18px 20px;
+    background: light-dark(#f5f5f7, #1e1e22);
+    color: light-dark(#1d1d1f, #e8e8ed);
+    user-select: none;
+  }
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+       opacity: 0.55; margin: 18px 2px 6px; font-weight: 600; }
+  h2:first-of-type { margin-top: 0; }
+  .card {
+    background: light-dark(#ffffff, #2a2a30);
+    border: 1px solid light-dark(rgba(0,0,0,0.08), rgba(255,255,255,0.08));
+    border-radius: 10px; padding: 4px 12px;
+  }
+  .row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 9px 0; min-height: 24px;
+  }
+  .row + .row { border-top: 1px solid light-dark(rgba(0,0,0,0.06), rgba(255,255,255,0.06)); }
+  .row > label:first-child { flex: 0 0 auto; }
+  .val { font-variant-numeric: tabular-nums; opacity: 0.6; font-size: 12px; min-width: 34px; text-align: right; }
+  input[type=range] { flex: 1; max-width: 180px; }
+  input[type=text] {
+    flex: 1; padding: 5px 8px; border-radius: 6px;
+    border: 1px solid light-dark(rgba(0,0,0,0.15), rgba(255,255,255,0.15));
+    background: light-dark(#fff, #1e1e22); color: inherit; font: inherit;
+  }
+  input[type=color] {
+    width: 34px; height: 24px; padding: 0; border: none; border-radius: 6px;
+    background: none; cursor: pointer;
+  }
+  button {
+    font: inherit; padding: 5px 12px; border-radius: 6px; cursor: pointer;
+    border: 1px solid light-dark(rgba(0,0,0,0.15), rgba(255,255,255,0.18));
+    background: light-dark(#fff, #3a3a42); color: inherit;
+  }
+  button:active { filter: brightness(0.92); }
+  .status { font-size: 12px; }
+  .status.error { color: light-dark(#c62828, #ff9c9c); }
+  .status.ok { color: light-dark(#2e7d32, #9cffb0); }
+  #combo-display { font-size: 17px; min-width: 56px; }
+  .hint { font-size: 11px; opacity: 0.55; }
+  .colors-grid {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+    padding: 10px 0; text-align: center; font-size: 11px;
+  }
+  .colors-grid label { display: block; margin-top: 4px; opacity: 0.75; }
 </style></head>
 <body>
-  <label>Oryx layout URL or hash</label>
-  <input type="text" id="oryx" />
-  <button id="apply-url">Fetch &amp; apply</button>
-  <span id="url-status"></span>
-
-  <label>Background opacity <span id="opacity-val"></span></label>
-  <input type="range" id="opacity" min="0.1" max="1" step="0.05" />
-
-  <label>Keys opacity <span id="key-opacity-val"></span></label>
-  <input type="range" id="key-opacity" min="0.2" max="1" step="0.05" />
-
-  <label>Colors</label>
-  <div class="colors">
-    <div><input type="color" id="bg-color" /><br>Background</div>
-    <div><input type="color" id="text-color" /><br>Text</div>
-    <div><input type="color" id="legend-color" /><br>Legend</div>
-    <div><input type="color" id="border-color" /><br>Border</div>
+  <h2>Layout</h2>
+  <div class="card">
+    <div class="row">
+      <input type="text" id="oryx" placeholder="Oryx layout URL or hash" />
+      <button id="apply-url">Fetch</button>
+    </div>
+    <div class="row" id="url-status-row" hidden>
+      <span class="status" id="url-status"></span>
+    </div>
+    <div class="row">
+      <label for="colors-toggle">Use Oryx layer colors</label>
+      <input type="checkbox" id="colors-toggle" />
+    </div>
   </div>
 
-  <label class="section-gap"><input type="checkbox" id="colors-toggle" /> Use Oryx layer colors</label>
-
-  <label>Grab hotkey (hold to move/resize)</label>
-  <div class="hotkey-row">
-    <span id="combo-display"></span>
-    <button id="record">Record</button>
-    <span id="record-hint"></span>
+  <h2>Appearance</h2>
+  <div class="card">
+    <div class="row">
+      <label>Background opacity</label>
+      <input type="range" id="opacity" min="0.1" max="1" step="0.05" />
+      <span class="val" id="opacity-val"></span>
+    </div>
+    <div class="row">
+      <label>Keys opacity</label>
+      <input type="range" id="key-opacity" min="0.2" max="1" step="0.05" />
+      <span class="val" id="key-opacity-val"></span>
+    </div>
+    <div class="row">
+      <label>Key fill opacity</label>
+      <input type="range" id="key-fill-opacity" min="0" max="1" step="0.05" />
+      <span class="val" id="key-fill-opacity-val"></span>
+    </div>
+    <div class="row">
+      <label>Padding</label>
+      <input type="range" id="padding" min="0" max="60" step="2" />
+      <span class="val" id="padding-val"></span>
+    </div>
+    <div class="colors-grid">
+      <div><input type="color" id="bg-color" /><label>Background</label></div>
+      <div><input type="color" id="key-fill-color" /><label>Key fill</label></div>
+      <div><input type="color" id="text-color" /><label>Text</label></div>
+      <div><input type="color" id="legend-color" /><label>Legend</label></div>
+      <div><input type="color" id="border-color" /><label>Border</label></div>
+    </div>
   </div>
 
-  <label class="section-gap">Overlay position</label>
-  <button id="reset-position">Reset to center</button>
+  <h2>Interaction</h2>
+  <div class="card">
+    <div class="row">
+      <label>Grab hotkey</label>
+      <span id="combo-display"></span>
+      <button id="record">Record</button>
+    </div>
+    <div class="row">
+      <span class="hint" id="record-hint">Hold to move and resize the overlay</span>
+    </div>
+  </div>
+
+  <h2>Position</h2>
+  <div class="card">
+    <div class="row">
+      <label>Overlay position</label>
+      <button id="reset-position">Reset to center</button>
+    </div>
+  </div>
 
   <script type="module" src="settings.js"></script>
 </body>

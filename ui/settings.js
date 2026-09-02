@@ -13,6 +13,11 @@ $('opacity-val').textContent = cfg.opacity;
 $('key-opacity').value = cfg.key_opacity;
 $('key-opacity-val').textContent = cfg.key_opacity;
 $('bg-color').value = cfg.bg_color;
+$('key-fill-color').value = cfg.key_fill_color;
+$('key-fill-opacity').value = cfg.key_fill_opacity;
+$('key-fill-opacity-val').textContent = cfg.key_fill_opacity;
+$('padding').value = cfg.padding;
+$('padding-val').textContent = cfg.padding;
 $('text-color').value = cfg.text_color;
 $('legend-color').value = cfg.legend_color;
 $('border-color').value = cfg.border_color;
@@ -36,6 +41,9 @@ const bind = (id, field, parse = (v) => v, valId = null) => {
 bind('opacity', 'opacity', Number, 'opacity-val');
 bind('key-opacity', 'key_opacity', Number, 'key-opacity-val');
 bind('bg-color', 'bg_color');
+bind('key-fill-color', 'key_fill_color');
+bind('key-fill-opacity', 'key_fill_opacity', Number, 'key-fill-opacity-val');
+bind('padding', 'padding', Number, 'padding-val');
 bind('text-color', 'text_color');
 bind('legend-color', 'legend_color');
 bind('border-color', 'border_color');
@@ -60,7 +68,7 @@ const heldMods = (e) => {
 $('record').addEventListener('click', () => {
   recording = true;
   maxMods = new Set();
-  $('record-hint').textContent = 'hold modifiers, release to save · Esc cancels';
+  $('record-hint').textContent = 'Hold modifiers, release to save · Esc cancels';
   $('combo-display').textContent = '…';
 });
 
@@ -70,9 +78,9 @@ for (const type of ['keydown', 'keyup']) {
     e.preventDefault();
     if (e.key === 'Escape') {
       recording = false;
-      $('record-hint').textContent = 'cancelled';
+      $('record-hint').textContent = 'Cancelled';
       $('combo-display').textContent = comboText(cfg.grab_combo);
-      setTimeout(() => { $('record-hint').textContent = ''; }, 1500);
+      setTimeout(() => { $('record-hint').textContent = 'Hold to move and resize the overlay'; }, 1500);
       return;
     }
     const held = heldMods(e);
@@ -81,10 +89,10 @@ for (const type of ['keydown', 'keyup']) {
     if (type === 'keyup' && held.size === 0 && maxMods.size > 0) {
       recording = false;
       cfg.grab_combo = MOD_ORDER.filter((m) => maxMods.has(m));
-      $('record-hint').textContent = 'saved';
+      $('record-hint').textContent = 'Saved';
       $('combo-display').textContent = comboText(cfg.grab_combo);
       await push();
-      setTimeout(() => { $('record-hint').textContent = ''; }, 1500);
+      setTimeout(() => { $('record-hint').textContent = 'Hold to move and resize the overlay'; }, 1500);
     }
   });
 }
@@ -94,14 +102,17 @@ $('reset-position').addEventListener('click', async () => {
 });
 
 $('apply-url').addEventListener('click', async () => {
+  $('url-status-row').hidden = false;
   $('url-status').textContent = '…';
+  $('url-status').className = 'status';
   try {
     const res = await invoke('refresh_layout', { url: $('oryx').value });
     cfg = await invoke('get_config');
     $('url-status').textContent = res.stale ? 'offline — using cache' : 'applied';
-    $('url-status').className = res.stale ? 'error' : 'ok';
+    $('url-status').className = res.stale ? 'status error' : 'status ok';
   } catch (err) {
     $('url-status').textContent = String(err);
-    $('url-status').className = 'error';
+    $('url-status').className = 'status error';
   }
+  $('url-status-row').hidden = false;
 });

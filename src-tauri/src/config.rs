@@ -17,6 +17,9 @@ pub struct Config {
     pub key_opacity: f64,
     pub grab_combo: Vec<String>,
     pub use_oryx_colors: bool,
+    pub key_fill_color: String,
+    pub key_fill_opacity: f64,
+    pub padding: f64,
     pub bg_color: String,
     pub text_color: String,
     pub legend_color: String,
@@ -33,6 +36,9 @@ impl Default for Config {
             key_opacity: 1.0,
             grab_combo: vec!["cmd".into(), "alt".into()],
             use_oryx_colors: true,
+            key_fill_color: "#ffffff".into(),
+            key_fill_opacity: 0.0,
+            padding: 10.0,
             bg_color: "#141418".into(),
             text_color: "#ffffff".into(),
             legend_color: "#ffffff".into(),
@@ -71,6 +77,8 @@ mod tests {
         assert!(c.window.is_none());
         assert_eq!(c.key_opacity, 1.0);
         assert_eq!(c.bg_color, "#141418");
+        assert_eq!(c.key_fill_opacity, 0.0);
+        assert_eq!(c.padding, 10.0);
         assert_eq!(c.text_color, "#ffffff");
         assert_eq!(c.legend_color, "#ffffff");
         assert_eq!(c.border_color, "#ffffff");

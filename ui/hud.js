@@ -4,11 +4,6 @@ import { translateSlot, shiftLabel } from './translator.mjs';
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
-// Approximate horizontal/vertical chrome (padding etc.) taken up around the
-// key grid inside #board; kept a rough constant per issue guidance rather
-// than measuring live layout.
-const BOARD_CHROME_PX = 20;
-
 // Layer the HUD should currently show. Updated by the layer-changed listener
 // and re-applied after every renderBoard() so config-only re-renders (e.g. an
 // opacity tick) don't snap the HUD back to layer 0.
@@ -19,10 +14,15 @@ let lastLayer = 0;
 let lastLayout = null;
 let lastConfig = null;
 
-function computeUnit() {
-  const availW = window.innerWidth - BOARD_CHROME_PX;
-  const availH = window.innerHeight - BOARD_CHROME_PX;
-  return Math.min(availW / BOARD_UNITS.w, availH / BOARD_UNITS.h);
+function computeLayout(config) {
+  const pad = config.padding ?? 10;
+  const availW = window.innerWidth - 2 * pad;
+  const availH = window.innerHeight - 2 * pad;
+  const unit = Math.max(8, Math.min(availW / BOARD_UNITS.w, availH / BOARD_UNITS.h));
+  // Center the key grid on the board background.
+  const offX = (window.innerWidth - BOARD_UNITS.w * unit) / 2;
+  const offY = (window.innerHeight - BOARD_UNITS.h * unit) / 2;
+  return { unit, offX, offY };
 }
 
 export function renderBoard(layoutJson, config) {
@@ -31,7 +31,7 @@ export function renderBoard(layoutJson, config) {
   const layers = layoutJson.data.layout.revision.layers;
   const board = document.getElementById('board');
   board.innerHTML = '';
-  const unit = computeUnit();
+  const { unit, offX, offY } = computeLayout(config);
   board.style.setProperty('--key-unit', `${unit}px`);
   const rects = keyRects();
   const badge = document.createElement('div');
@@ -46,7 +46,7 @@ export function renderBoard(layoutJson, config) {
       const r = rects[i];
       const k = document.createElement('div');
       k.className = 'key';
-      k.style.cssText = `left:${r.x * unit}px;top:${r.y * unit}px;width:${r.w * unit}px;height:${r.h * unit}px`;
+      k.style.cssText = `left:${offX + r.x * unit}px;top:${offY + r.y * unit}px;width:${r.w * unit}px;height:${r.h * unit}px`;
       if (config.use_oryx_colors && key.glowColor) k.style.background = hexTint(key.glowColor);
       const custom = key.customLabel;
       const tap = document.createElement('span');
@@ -88,6 +88,7 @@ function applyTheme(config) {
   st.setProperty('--text-color', config.text_color);
   st.setProperty('--legend-color', config.legend_color);
   st.setProperty('--border-color', hexToRgba(config.border_color, 0.35));
+  st.setProperty('--key-fill', hexToRgba(config.key_fill_color, config.key_fill_opacity));
 }
 
 function hexTint(hex) {
@@ -134,7 +135,9 @@ async function main() {
     applyTheme(e.payload);
     // Only a use_oryx_colors flip changes the DOM (glowColor tints are baked
     // in at render time); everything else is covered by the CSS vars above.
-    const needsRender = !lastConfig || e.payload.use_oryx_colors !== lastConfig.use_oryx_colors;
+    const needsRender = !lastConfig
+      || e.payload.use_oryx_colors !== lastConfig.use_oryx_colors
+      || e.payload.padding !== lastConfig.padding;
     if (needsRender) {
       renderBoard(await invoke('load_layout'), e.payload);
       setActiveLayer(lastLayer);
