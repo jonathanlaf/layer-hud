@@ -3,29 +3,96 @@ const { invoke } = window.__TAURI__.core;
 let cfg = await invoke('get_config');
 const $ = (id) => document.getElementById(id);
 
+const MOD_LABELS = { cmd: '⌘', alt: '⌥', ctrl: '⌃', shift: '⇧' };
+const MOD_ORDER = ['cmd', 'alt', 'ctrl', 'shift'];
+const comboText = (arr) => arr.map((m) => MOD_LABELS[m]).join('') || '—';
+
 $('oryx').value = cfg.oryx_url;
 $('opacity').value = cfg.opacity;
 $('opacity-val').textContent = cfg.opacity;
-$('colors').checked = cfg.use_oryx_colors;
-$('combo').value = cfg.grab_combo.join(',');
+$('key-opacity').value = cfg.key_opacity;
+$('key-opacity-val').textContent = cfg.key_opacity;
+$('bg-color').value = cfg.bg_color;
+$('text-color').value = cfg.text_color;
+$('legend-color').value = cfg.legend_color;
+$('border-color').value = cfg.border_color;
+$('colors-toggle').checked = cfg.use_oryx_colors;
+$('combo-display').textContent = comboText(cfg.grab_combo);
 
 async function push() {
+  // Never clobber a window rect saved by the overlay after this page loaded.
+  const disk = await invoke('get_config');
+  cfg.window = disk.window;
   await invoke('set_config', { config: cfg });
 }
 
-$('opacity').addEventListener('input', async (e) => {
-  cfg.opacity = Number(e.target.value);
-  $('opacity-val').textContent = cfg.opacity;
-  await push();
-});
-$('colors').addEventListener('change', async (e) => {
+const bind = (id, field, parse = (v) => v, valId = null) => {
+  $(id).addEventListener('input', async (e) => {
+    cfg[field] = parse(e.target.value);
+    if (valId) $(valId).textContent = cfg[field];
+    await push();
+  });
+};
+bind('opacity', 'opacity', Number, 'opacity-val');
+bind('key-opacity', 'key_opacity', Number, 'key-opacity-val');
+bind('bg-color', 'bg_color');
+bind('text-color', 'text_color');
+bind('legend-color', 'legend_color');
+bind('border-color', 'border_color');
+
+$('colors-toggle').addEventListener('change', async (e) => {
   cfg.use_oryx_colors = e.target.checked;
   await push();
 });
-$('combo').addEventListener('change', async (e) => {
-  cfg.grab_combo = e.target.value.split(',');
-  await push();
+
+let recording = false;
+let maxMods = new Set();
+
+const heldMods = (e) => {
+  const s = new Set();
+  if (e.metaKey) s.add('cmd');
+  if (e.altKey) s.add('alt');
+  if (e.ctrlKey) s.add('ctrl');
+  if (e.shiftKey) s.add('shift');
+  return s;
+};
+
+$('record').addEventListener('click', () => {
+  recording = true;
+  maxMods = new Set();
+  $('record-hint').textContent = 'hold modifiers, release to save · Esc cancels';
+  $('combo-display').textContent = '…';
 });
+
+for (const type of ['keydown', 'keyup']) {
+  window.addEventListener(type, async (e) => {
+    if (!recording) return;
+    e.preventDefault();
+    if (e.key === 'Escape') {
+      recording = false;
+      $('record-hint').textContent = 'cancelled';
+      $('combo-display').textContent = comboText(cfg.grab_combo);
+      setTimeout(() => { $('record-hint').textContent = ''; }, 1500);
+      return;
+    }
+    const held = heldMods(e);
+    held.forEach((m) => maxMods.add(m));
+    $('combo-display').textContent = comboText(MOD_ORDER.filter((m) => maxMods.has(m)));
+    if (type === 'keyup' && held.size === 0 && maxMods.size > 0) {
+      recording = false;
+      cfg.grab_combo = MOD_ORDER.filter((m) => maxMods.has(m));
+      $('record-hint').textContent = 'saved';
+      $('combo-display').textContent = comboText(cfg.grab_combo);
+      await push();
+      setTimeout(() => { $('record-hint').textContent = ''; }, 1500);
+    }
+  });
+}
+
+$('reset-position').addEventListener('click', async () => {
+  await invoke('clear_window_position');
+});
+
 $('apply-url').addEventListener('click', async () => {
   $('url-status').textContent = '…';
   try {

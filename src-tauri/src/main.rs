@@ -71,7 +71,8 @@ fn main() {
             oryx::refresh_layout,
             oryx::load_layout,
             oryx::get_config,
-            oryx::set_config
+            oryx::set_config,
+            oryx::clear_window_position
         ])
         .run(tauri::generate_context!())
         .expect("error while running voyager-hud");

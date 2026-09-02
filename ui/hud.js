@@ -76,10 +76,22 @@ export function renderBoard(layoutJson, config) {
   }
 }
 
-function hexTint(hex) {
+function hexToRgba(hex, alpha) {
   const n = parseInt(hex.replace('#', ''), 16);
-  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-  return `rgba(${r},${g},${b},0.25)`;
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+}
+
+function applyTheme(config) {
+  const st = document.documentElement.style;
+  st.setProperty('--board-bg', hexToRgba(config.bg_color, config.opacity));
+  st.setProperty('--key-opacity', config.key_opacity);
+  st.setProperty('--text-color', config.text_color);
+  st.setProperty('--legend-color', config.legend_color);
+  st.setProperty('--border-color', hexToRgba(config.border_color, 0.35));
+}
+
+function hexTint(hex) {
+  return hexToRgba(hex, 0.25);
 }
 
 export function setActiveLayer(n) {
@@ -119,9 +131,16 @@ async function main() {
   await listen('keymapp-online', () => setOffline(false));
   await listen('grab-mode', (e) => document.body.classList.toggle('grab', e.payload.on));
   await listen('config-changed', async (e) => {
-    document.documentElement.style.setProperty('--hud-opacity', e.payload.opacity);
-    renderBoard(await invoke('load_layout'), e.payload);
-    setActiveLayer(lastLayer);
+    applyTheme(e.payload);
+    // Only a use_oryx_colors flip changes the DOM (glowColor tints are baked
+    // in at render time); everything else is covered by the CSS vars above.
+    const needsRender = !lastConfig || e.payload.use_oryx_colors !== lastConfig.use_oryx_colors;
+    if (needsRender) {
+      renderBoard(await invoke('load_layout'), e.payload);
+      setActiveLayer(lastLayer);
+    } else {
+      lastConfig = e.payload;
+    }
   });
   await listen('layout-refreshed', async () => {
     renderBoard(await invoke('load_layout'), await invoke('get_config'));
@@ -145,9 +164,21 @@ async function main() {
     }, 100);
   });
 
+  for (const dir of ['NorthWest', 'NorthEast', 'SouthWest', 'SouthEast']) {
+    const h = document.createElement('div');
+    h.className = `resize-handle ${dir.toLowerCase()}`;
+    h.addEventListener('mousedown', (e) => {
+      if (!document.body.classList.contains('grab')) return;
+      e.stopPropagation();
+      e.preventDefault();
+      window.__TAURI__.window.getCurrentWindow().startResizeDragging(dir);
+    });
+    document.body.appendChild(h);
+  }
+
   try {
     const config = await invoke('get_config');
-    document.documentElement.style.setProperty('--hud-opacity', config.opacity);
+    applyTheme(config);
     const layout = await invoke('load_layout');
     renderBoard(layout, config);
     setActiveLayer(lastLayer);

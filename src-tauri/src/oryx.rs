@@ -122,6 +122,18 @@ pub fn set_config(app: AppHandle, config: crate::config::Config) -> Result<(), S
     app.emit("config-changed", &config).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub fn clear_window_position(app: AppHandle) -> Result<(), String> {
+    let path = config_path(&app)?;
+    let mut cfg = crate::config::load(&path);
+    cfg.window = None;
+    crate::config::save(&path, &cfg).map_err(|e| e.to_string())?;
+    if let Some(w) = app.get_webview_window("overlay") {
+        let _ = w.center();
+    }
+    Ok(())
+}
+
 fn chrono_free_now() -> String {
     // ISO-ish timestamp without a chrono dependency
     let now = std::time::SystemTime::now()

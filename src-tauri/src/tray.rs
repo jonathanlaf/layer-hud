@@ -46,7 +46,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                         tauri::WebviewUrl::App("settings.html".into()),
                     )
                     .title("Voyager HUD Settings")
-                    .inner_size(420.0, 380.0)
+                    .inner_size(420.0, 600.0)
                     .build();
                 }
             }

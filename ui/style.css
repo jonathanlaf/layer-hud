@@ -1,21 +1,22 @@
 html, body { margin: 0; background: transparent; overflow: hidden; }
-#board { color: #fff; font: 13px -apple-system, sans-serif;
-         background: rgba(20, 20, 24, var(--hud-opacity, 0.85));
+#board { color: var(--text-color, #fff); font: 13px -apple-system, sans-serif;
+         background: var(--board-bg, rgba(20, 20, 24, 0.85));
          border-radius: 12px; padding: 10px; height: calc(100vh - 20px); position: relative; }
-.layer { display: none; }
+.layer { display: none; opacity: var(--key-opacity, 1); }
 .layer.active { display: block; }
-.key { position: absolute; border: 1px solid rgba(255,255,255,0.35); border-radius: 7px;
+.key { position: absolute; border: 1px solid var(--border-color, rgba(255,255,255,0.35)); border-radius: 7px;
        box-sizing: border-box; text-align: center; }
 .key .tap { position: absolute; inset: 0; display: flex; align-items: center;
-            justify-content: center; font-size: calc(var(--key-unit, 62px) * 0.258); }
+            justify-content: center; font-size: calc(var(--key-unit, 62px) * 0.258);
+            color: var(--text-color, #fff); }
 .key .hold { position: absolute; bottom: 2px; left: 0; right: 0;
-             font-size: calc(var(--key-unit, 62px) * 0.145); opacity: 0.75; }
+             font-size: calc(var(--key-unit, 62px) * 0.145); opacity: 0.75; color: var(--legend-color, #fff); }
 .key .dtap { position: absolute; top: 1px; right: 4px;
-             font-size: calc(var(--key-unit, 62px) * 0.145); opacity: 0.75; }
+             font-size: calc(var(--key-unit, 62px) * 0.145); opacity: 0.75; color: var(--legend-color, #fff); }
 .key .thold { position: absolute; top: 1px; left: 4px;
-              font-size: calc(var(--key-unit, 62px) * 0.145); opacity: 0.75; }
+              font-size: calc(var(--key-unit, 62px) * 0.145); opacity: 0.75; color: var(--legend-color, #fff); }
 .key .shift { position: absolute; top: 1px; left: 0; right: 0; text-align: center;
-              font-size: calc(var(--key-unit, 62px) * 0.145); opacity: 0.75; }
+              font-size: calc(var(--key-unit, 62px) * 0.145); opacity: 0.75; color: var(--legend-color, #fff); }
 .key.trigger-active { border-color: #ffd479; box-shadow: 0 0 6px #ffd479; }
 #badge { position: absolute; top: 4px; right: 10px; font-size: 11px; opacity: 0.8; }
 #startup-error { position: absolute; inset: 0; display: flex; align-items: center;
@@ -25,3 +26,10 @@ body[data-base="0"] #board { outline: 2px solid rgba(120,180,255,0.6); outline-o
 body.offline #board { opacity: 0.4; }
 body.offline #badge::after { content: " — Keymapp offline"; color: #ff9c9c; }
 body.grab #board { outline: 2px solid rgba(255,220,120,0.9); outline-offset: -2px; }
+.resize-handle { display: none; position: fixed; width: 18px; height: 18px; z-index: 10;
+                 border: 2px solid rgba(255,220,120,0.9); }
+body.grab .resize-handle { display: block; }
+.resize-handle.northwest { top: 0; left: 0; border-right: none; border-bottom: none; cursor: nwse-resize; }
+.resize-handle.northeast { top: 0; right: 0; border-left: none; border-bottom: none; cursor: nesw-resize; }
+.resize-handle.southwest { bottom: 0; left: 0; border-right: none; border-top: none; cursor: nesw-resize; }
+.resize-handle.southeast { bottom: 0; right: 0; border-left: none; border-top: none; cursor: nwse-resize; }

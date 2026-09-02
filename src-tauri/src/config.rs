@@ -14,8 +14,13 @@ pub struct WindowRect {
 pub struct Config {
     pub oryx_url: String,
     pub opacity: f64,
+    pub key_opacity: f64,
     pub grab_combo: Vec<String>,
     pub use_oryx_colors: bool,
+    pub bg_color: String,
+    pub text_color: String,
+    pub legend_color: String,
+    pub border_color: String,
     pub window: Option<WindowRect>,
     pub last_refresh: Option<String>,
 }
@@ -25,8 +30,13 @@ impl Default for Config {
         Config {
             oryx_url: "Br3gO".into(),
             opacity: 0.85,
+            key_opacity: 1.0,
             grab_combo: vec!["cmd".into(), "alt".into()],
             use_oryx_colors: true,
+            bg_color: "#141418".into(),
+            text_color: "#ffffff".into(),
+            legend_color: "#ffffff".into(),
+            border_color: "#ffffff".into(),
             window: None,
             last_refresh: None,
         }
@@ -59,6 +69,24 @@ mod tests {
         assert_eq!(c.grab_combo, vec!["cmd".to_string(), "alt".to_string()]);
         assert!(c.use_oryx_colors);
         assert!(c.window.is_none());
+        assert_eq!(c.key_opacity, 1.0);
+        assert_eq!(c.bg_color, "#141418");
+        assert_eq!(c.text_color, "#ffffff");
+        assert_eq!(c.legend_color, "#ffffff");
+        assert_eq!(c.border_color, "#ffffff");
+    }
+
+    #[test]
+    fn old_config_without_new_fields_gets_defaults() {
+        let dir = std::env::temp_dir().join("vhud-test-migrate");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("config.json");
+        std::fs::write(&path, r#"{"oryx_url":"abc","opacity":0.5}"#).unwrap();
+        let c = load(&path);
+        assert_eq!(c.oryx_url, "abc");
+        assert_eq!(c.opacity, 0.5);
+        assert_eq!(c.key_opacity, 1.0);
+        assert_eq!(c.bg_color, "#141418");
     }
 
     #[test]

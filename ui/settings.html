@@ -7,6 +7,13 @@
   input[type=text] { width: 100%; }
   .error { color: #c00; font-size: 12px; }
   .ok { color: #080; font-size: 12px; }
+  .colors { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .colors div { text-align: center; font-size: 11px; }
+  .colors input { width: 100%; height: 28px; padding: 0; border: none; }
+  .hotkey-row { display: flex; align-items: center; gap: 10px; }
+  #combo-display { font-size: 18px; min-width: 60px; }
+  button { padding: 4px 10px; }
+  .section-gap { margin-top: 18px; }
 </style></head>
 <body>
   <label>Oryx layout URL or hash</label>
@@ -14,20 +21,32 @@
   <button id="apply-url">Fetch &amp; apply</button>
   <span id="url-status"></span>
 
-  <label>Opacity <span id="opacity-val"></span></label>
-  <input type="range" id="opacity" min="0.2" max="1" step="0.05" />
+  <label>Background opacity <span id="opacity-val"></span></label>
+  <input type="range" id="opacity" min="0.1" max="1" step="0.05" />
 
-  <label><input type="checkbox" id="colors" /> Use Oryx layer colors</label>
+  <label>Keys opacity <span id="key-opacity-val"></span></label>
+  <input type="range" id="key-opacity" min="0.2" max="1" step="0.05" />
+
+  <label>Colors</label>
+  <div class="colors">
+    <div><input type="color" id="bg-color" /><br>Background</div>
+    <div><input type="color" id="text-color" /><br>Text</div>
+    <div><input type="color" id="legend-color" /><br>Legend</div>
+    <div><input type="color" id="border-color" /><br>Border</div>
+  </div>
+
+  <label class="section-gap"><input type="checkbox" id="colors-toggle" /> Use Oryx layer colors</label>
 
   <label>Grab hotkey (hold to move/resize)</label>
-  <select id="combo">
-    <option value="cmd,alt">⌘⌥</option>
-    <option value="cmd,ctrl">⌘⌃</option>
-    <option value="alt,ctrl">⌥⌃</option>
-    <option value="cmd">⌘</option>
-    <option value="alt">⌥</option>
-    <option value="ctrl">⌃</option>
-  </select>
+  <div class="hotkey-row">
+    <span id="combo-display"></span>
+    <button id="record">Record</button>
+    <span id="record-hint"></span>
+  </div>
+
+  <label class="section-gap">Overlay position</label>
+  <button id="reset-position">Reset to center</button>
+
   <script type="module" src="settings.js"></script>
 </body>
 </html>
