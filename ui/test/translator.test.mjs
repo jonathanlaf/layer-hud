@@ -44,3 +44,21 @@ test('unknown code falls back to cleaned name', () => {
   assert.equal(translateSlot({ code: 'KC_MEDIA_PLAY_PAUSE' }), '⏯');
   assert.equal(translateSlot({ code: 'KC_SOMETHING_NEW' }), 'SOMETHING NEW');
 });
+
+test('shift legends for CSA shift pairs', async () => {
+  const { shiftLabel } = await import('../translator.mjs');
+  assert.equal(shiftLabel({ code: 'KC_6' }), '?');
+  assert.equal(shiftLabel({ code: 'KC_MINUS' }), '_');
+  assert.equal(shiftLabel({ code: 'KC_COMMA' }), "'");
+  assert.equal(shiftLabel({ code: 'KC_DOT' }), '"');
+});
+
+test('shift legend suppressed when not informative', async () => {
+  const { shiftLabel } = await import('../translator.mjs');
+  assert.equal(shiftLabel({ code: 'KC_A' }), '');
+  assert.equal(shiftLabel({ code: 'CSA_ECUT' }), '');
+  assert.equal(shiftLabel({ code: 'KC_MINUS', modifiers: { rightAlt: true } }), '');
+  assert.equal(shiftLabel({ code: 'KC_6', customLabel: 'X' }), '');
+  assert.equal(shiftLabel({ code: 'MO', layer: 2 }), '');
+  assert.equal(shiftLabel(null), '');
+});

@@ -10,8 +10,10 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
     let menu = Menu::with_items(app, &[&refresh, &pin, &settings, &quit])?;
     let pin_handle = pin.clone();
 
+    let tray_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?;
     TrayIconBuilder::with_id("main")
-        .icon(app.default_window_icon().unwrap().clone())
+        .icon(tray_icon)
+        .icon_as_template(true)
         .menu(&menu)
         .on_menu_event(move |app, event| match event.id.as_ref() {
             "refresh" => {

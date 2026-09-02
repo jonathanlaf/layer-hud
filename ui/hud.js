@@ -1,5 +1,5 @@
 import { keyRects, BOARD_UNITS } from './geometry.mjs';
-import { translateSlot } from './translator.mjs';
+import { translateSlot, shiftLabel } from './translator.mjs';
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -53,6 +53,13 @@ export function renderBoard(layoutJson, config) {
       tap.className = 'tap';
       tap.textContent = translateSlot(key.tap ? { ...key.tap, customLabel: custom } : key.tap);
       k.appendChild(tap);
+      const shifted = shiftLabel(key.tap ? { ...key.tap, customLabel: custom } : key.tap);
+      if (shifted) {
+        const s = document.createElement('span');
+        s.className = 'shift';
+        s.textContent = shifted;
+        k.appendChild(s);
+      }
       for (const [slot, cls] of [['hold', 'hold'], ['doubleTap', 'dtap'], ['tapHold', 'thold']]) {
         if (key[slot]) {
           const s = document.createElement('span');

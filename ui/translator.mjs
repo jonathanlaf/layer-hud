@@ -45,6 +45,25 @@ export const COMBO_TABLE = {
   'KC_EQUAL+S': '+',
 };
 
+// What Shift produces on macOS Canadian-CSA for keys whose shifted output is
+// not obvious (letters and accented letters just uppercase — omitted).
+const SHIFT_TABLE = {
+  KC_1: '!', KC_2: '@', KC_3: '#', KC_4: '$', KC_5: '%',
+  KC_6: '?', KC_7: '&', KC_8: '*', KC_9: '(', KC_0: ')',
+  KC_MINUS: '_', KC_EQUAL: '+', KC_COMMA: "'", KC_DOT: '"',
+  KC_SCLN: ':',
+};
+
+// The small shift legend for a tap slot, or '' when it would be noise:
+// slots with modifiers baked in (Shift wouldn't produce the table value),
+// layer refs, macros, custom labels, and keys not in SHIFT_TABLE.
+export function shiftLabel(slot) {
+  if (!slot || slot.customLabel) return '';
+  if (slot.layer !== null && slot.layer !== undefined) return '';
+  if (slot.macro || modString(slot.modifiers)) return '';
+  return SHIFT_TABLE[slot.code] ?? '';
+}
+
 const MOD_SYMBOL = { C: '⌃', S: '⇧', A: '⌥', G: '⌘' };
 
 function modString(modifiers) {
