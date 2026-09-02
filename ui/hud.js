@@ -149,4 +149,7 @@ async function main() {
     showStartupError();
   }
 }
-main();
+main().catch((err) => {
+  console.error('voyager-hud startup failed:', err);
+  showStartupError();
+});
