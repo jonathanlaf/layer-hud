@@ -2148,7 +2148,7 @@ dependencies = [
 
 [[package]]
 name = "layer-hud"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "kontroll",
  "reqwest 0.12.28",
