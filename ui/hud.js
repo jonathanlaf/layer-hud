@@ -4,6 +4,12 @@ import { translateSlot, shiftLabel } from './translator.mjs';
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
+// A ctrl-click while dragging in grab mode is macOS's system convention for
+// a secondary click, which would otherwise pop the webview's native context
+// menu mid-drag. DevTools access lives in the tray menu (debug builds only)
+// instead of this menu.
+document.addEventListener('contextmenu', (e) => e.preventDefault());
+
 // Layer the HUD should currently show. Updated by the layer-changed listener
 // and re-applied after every renderBoard() so config-only re-renders (e.g. an
 // opacity tick) don't snap the HUD back to layer 0.
@@ -205,6 +211,6 @@ async function main() {
   }
 }
 main().catch((err) => {
-  console.error('voyager-hud startup failed:', err);
+  console.error('layer-hud startup failed:', err);
   showStartupError();
 });
