@@ -52,7 +52,7 @@ gh attestation verify <path-to-downloaded-file>.dmg --owner jonathanlaf
 
 A successful verification means the file you downloaded was built from this repository's source by this repository's CI — not tampered with in transit or substituted upstream.
 
-CI only builds from tags reachable from `main` (enforced in CI, not just convention) and creates each release as a **draft** for manual review before it goes public — the version badge above reflects the latest *published* release, not the draft. `main` itself blocks direct pushes and requires a passing CI run to merge; external contributions additionally auto-request review from [CODEOWNERS](.github/CODEOWNERS).
+CI only builds from tags reachable from `main` (enforced in CI, not just convention) and creates each release as a **draft** for manual review before it goes public — the version badge above reflects the latest *published* release, not the draft. `main` requires a pull request with passing CI to merge, can't be force-pushed or deleted, and external contributions auto-request review from [CODEOWNERS](.github/CODEOWNERS).
 
 ## Footprint
 
