@@ -17,6 +17,9 @@ fn main() {
         ))
         .setup(|app| {
             app.manage(state::HudState::new());
+            if let Err(e) = oryx::migrate_legacy_identifier(app.handle()) {
+                eprintln!("layer-hud: legacy config migration failed: {e}");
+            }
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             let overlay = app.get_webview_window("overlay").expect("overlay window");
@@ -66,7 +69,7 @@ fn main() {
                     let size = size.to_logical::<f64>(scale);
                     cfg.window = Some(config::WindowRect { x: pos.x, y: pos.y, w: size.width, h: size.height });
                     if let Err(e) = config::save(&path, &cfg) {
-                        eprintln!("voyager-hud: failed to persist window rect: {e}");
+                        eprintln!("layer-hud: failed to persist window rect: {e}");
                     }
                 }
             }
@@ -79,5 +82,5 @@ fn main() {
             oryx::clear_window_position
         ])
         .run(tauri::generate_context!())
-        .expect("error while running voyager-hud");
+        .expect("error while running layer-hud");
 }

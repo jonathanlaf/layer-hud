@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "voyager-hud",
+  "productName": "layer-hud",
   "version": "0.1.0",
-  "identifier": "io.jonathanlaf.voyagerhud",
+  "identifier": "io.jonathanlaf.layerhud",
   "build": {
     "frontendDist": "../ui"
   },
@@ -12,7 +12,7 @@
     "windows": [
       {
         "label": "overlay",
-        "title": "Voyager HUD",
+        "title": "Layer HUD",
         "width": 940,
         "height": 380,
         "transparent": true,

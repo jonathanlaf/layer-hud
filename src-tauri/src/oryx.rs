@@ -47,6 +47,30 @@ fn cache_path(app: &AppHandle) -> Result<PathBuf, String> {
         .map_err(|e| e.to_string())
 }
 
+/// One-time migration for the io.jonathanlaf.voyagerhud -> io.jonathanlaf.layerhud
+/// identifier rename: if this machine has a config saved under the old
+/// identifier's app-support directory and none yet under the new one, copy it
+/// over so existing settings aren't silently reset to defaults on upgrade.
+pub fn migrate_legacy_identifier(app: &AppHandle) -> Result<(), String> {
+    let new_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    if new_dir.join("config.json").exists() {
+        return Ok(());
+    }
+    let Some(home) = std::env::var_os("HOME") else {
+        return Ok(());
+    };
+    let old_dir = PathBuf::from(home).join("Library/Application Support/io.jonathanlaf.voyagerhud");
+    if !old_dir.join("config.json").exists() {
+        return Ok(());
+    }
+    std::fs::create_dir_all(&new_dir).map_err(|e| e.to_string())?;
+    std::fs::copy(old_dir.join("config.json"), new_dir.join("config.json")).map_err(|e| e.to_string())?;
+    if old_dir.join("layout.json").exists() {
+        let _ = std::fs::copy(old_dir.join("layout.json"), new_dir.join("layout.json"));
+    }
+    Ok(())
+}
+
 async fn fetch_from_oryx(hash: &str) -> Result<Value, FetchError> {
     let body = json!({
         "query": QUERY,
