@@ -56,6 +56,8 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
             }
             "settings" => {
                 if let Some(w) = app.get_webview_window("settings") {
+                    let _ = w.unminimize();
+                    let _ = w.show();
                     let _ = w.set_focus();
                 } else {
                     let _ = tauri::WebviewWindowBuilder::new(
