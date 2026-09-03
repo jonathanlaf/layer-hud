@@ -69,10 +69,16 @@ impl Config {
 }
 
 pub fn load(path: &Path) -> Config {
-    std::fs::read_to_string(path)
+    let mut cfg: Config = std::fs::read_to_string(path)
         .ok()
         .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default()
+        .unwrap_or_default();
+    // Clamp on every read, not just set_config's write path, so a hand-edited
+    // or otherwise out-of-range value on disk self-heals for every caller
+    // (get_config, the window-restore read in main.rs, grab.rs's poll, etc.)
+    // instead of only after the user next changes a setting via the UI.
+    cfg.clamp();
+    cfg
 }
 
 pub fn save(path: &Path, cfg: &Config) -> std::io::Result<()> {
@@ -137,6 +143,17 @@ mod tests {
         assert_eq!(c.border_opacity, 0.0);
         assert_eq!(c.border_width, 5.0);
         assert_eq!(c.key_fill_opacity, 1.0);
+        assert_eq!(c.padding, 0.0);
+    }
+
+    #[test]
+    fn load_clamps_out_of_range_values_from_disk() {
+        let dir = std::env::temp_dir().join("vhud-test-load-clamp");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("config.json");
+        std::fs::write(&path, r#"{"opacity":5.0,"padding":-10.0}"#).unwrap();
+        let c = load(&path);
+        assert_eq!(c.opacity, 1.0);
         assert_eq!(c.padding, 0.0);
     }
 

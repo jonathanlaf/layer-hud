@@ -16,11 +16,23 @@ $('border-color').value = cfg.border_color;
 $('colors-toggle').checked = cfg.use_oryx_colors;
 $('combo-display').textContent = comboText(cfg.grab_combo);
 
-async function push() {
-  // Never clobber a window rect saved by the overlay after this page loaded.
-  const disk = await invoke('get_config');
-  cfg.window = disk.window;
-  await invoke('set_config', { config: cfg });
+// Serialized so rapid-fire commits (e.g. fast typing, each one a separate
+// read-modify-write) can never resolve out of order and let a stale value
+// overwrite a newer one.
+let pushChain = Promise.resolve();
+function push() {
+  // Swallow a prior link's rejection before chaining the next one — .then()
+  // on an already-rejected promise never runs its callback, so without this
+  // a single failed invoke() would silently stop every future commit from
+  // persisting for the rest of the session.
+  const attempt = pushChain.catch(() => {}).then(async () => {
+    // Never clobber a window rect saved by the overlay after this page loaded.
+    const disk = await invoke('get_config');
+    cfg.window = disk.window;
+    await invoke('set_config', { config: cfg });
+  });
+  pushChain = attempt;
+  return attempt;
 }
 
 // Shared mutate-then-persist step used by every binding below, so there's
@@ -55,13 +67,18 @@ const bindNumeric = (id, field) => {
   const roundToStep = (v) => Number((Math.round(v / step) * step).toFixed(stepDecimals));
   slider.value = cfg[field];
   box.value = cfg[field];
-  const apply = (v) => {
+  // The one place that owns "this field's value changed": mutate, sync the
+  // slider, persist. Both the slider and the box route through this instead
+  // of each re-deriving the same three steps.
+  const applyValue = (v) => {
     cfg[field] = v;
     slider.value = v;
-    box.value = v;
-    return commit(field, v);
+    return push();
   };
-  slider.addEventListener('input', (e) => apply(Number(e.target.value)));
+  slider.addEventListener('input', (e) => {
+    applyValue(Number(e.target.value));
+    box.value = slider.value;
+  });
   box.addEventListener('input', () => {
     const before = box.value;
     const digitsAndDot = before.replace(/[^0-9.]/g, '');
@@ -75,9 +92,23 @@ const bindNumeric = (id, field) => {
       box.setSelectionRange(caret, caret);
     }
     const v = parseFloat(sanitized);
-    if (Number.isFinite(v)) commit(field, clampNum(roundToStep(v), min, max));
+    if (!Number.isFinite(v)) return;
+    const clamped = clampNum(roundToStep(v), min, max);
+    // Out-of-range or off-step: show the corrected value immediately (so the
+    // box never displays a number other than the one actually applied),
+    // preserving the caret the same way the sanitize step above does.
+    if (clamped !== v) {
+      const corrected = String(clamped);
+      const caret = box.selectionStart - (box.value.length - corrected.length);
+      box.value = corrected;
+      box.setSelectionRange(caret, caret);
+    }
+    applyValue(clamped);
   });
   box.addEventListener('change', () => {
+    // Always renormalize on blur, even when the typed text parses to the
+    // already-committed number (e.g. "3.", "007") — otherwise a malformed
+    // but numerically-equal string can stay displayed indefinitely.
     const v = parseFloat(box.value);
     box.value = Number.isFinite(v) ? clampNum(roundToStep(v), min, max) : cfg[field];
   });
