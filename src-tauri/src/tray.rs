@@ -55,7 +55,9 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                 state.pinned.store(pinned, std::sync::atomic::Ordering::SeqCst);
             }
             "settings" => {
-                if app.get_webview_window("settings").is_none() {
+                if let Some(w) = app.get_webview_window("settings") {
+                    let _ = w.set_focus();
+                } else {
                     let _ = tauri::WebviewWindowBuilder::new(
                         app,
                         "settings",
@@ -68,6 +70,12 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
             }
             #[cfg(debug_assertions)]
             "devtools" => {
+                // Open both — the bug being chased is often a mismatch
+                // between what Settings sends and what the overlay applies,
+                // so one console alone tells half the story.
+                if let Some(w) = app.get_webview_window("settings") {
+                    w.open_devtools();
+                }
                 if let Some(w) = app.get_webview_window("overlay") {
                     w.open_devtools();
                 }
