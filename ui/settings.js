@@ -25,12 +25,11 @@ function push() {
   // on an already-rejected promise never runs its callback, so without this
   // a single failed invoke() would silently stop every future commit from
   // persisting for the rest of the session.
-  const attempt = pushChain.catch(() => {}).then(async () => {
-    // Never clobber a window rect saved by the overlay after this page loaded.
-    const disk = await invoke('get_config');
-    cfg.window = disk.window;
-    await invoke('set_config', { config: cfg });
-  });
+  // set_config preserves whatever window rect is already on disk itself
+  // (the overlay's drag/resize handler owns that field), so this doesn't
+  // need to re-fetch it first — that used to be a client-side workaround
+  // for a race the backend now closes with its own lock.
+  const attempt = pushChain.catch(() => {}).then(() => invoke('set_config', { config: cfg }));
   pushChain = attempt;
   return attempt;
 }

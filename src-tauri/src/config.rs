@@ -85,7 +85,19 @@ pub fn save(path: &Path, cfg: &Config) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    std::fs::write(path, serde_json::to_string_pretty(cfg).expect("serialize config"))
+    // Write to a sibling temp file and rename it into place, rather than
+    // truncating and rewriting `path` directly. config_lock only serializes
+    // this crate's own writers; several call sites still read config.json
+    // unlocked (grab.rs's poll loop, tray.rs's refresh handler), and a
+    // truncate-then-write leaves a window where such a reader can observe an
+    // empty file. A rename is atomic on the filesystems this app targets, so
+    // any concurrent reader always sees either the fully-old or fully-new
+    // content, never a partial one — no reader-side locking required.
+    let mut tmp_path = path.as_os_str().to_owned();
+    tmp_path.push(".tmp");
+    let tmp_path = std::path::PathBuf::from(tmp_path);
+    std::fs::write(&tmp_path, serde_json::to_string_pretty(cfg).expect("serialize config"))?;
+    std::fs::rename(&tmp_path, path)
 }
 
 #[cfg(test)]

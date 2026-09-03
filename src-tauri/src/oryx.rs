@@ -47,6 +47,28 @@ fn cache_path(app: &AppHandle) -> Result<PathBuf, String> {
         .map_err(|e| e.to_string())
 }
 
+/// Load, mutate and save config.json as one atomic step. config.json is
+/// written from several independent places (this module's commands, the
+/// window-drag handler in main.rs) with no other coordination between them;
+/// routing every read-modify-write through the same app-wide lock is what
+/// stops two concurrent writers from silently discarding each other's change.
+pub fn update_config<F>(app: &AppHandle, f: F) -> Result<crate::config::Config, String>
+where
+    F: FnOnce(&mut crate::config::Config),
+{
+    let state = app.state::<crate::state::HudState>();
+    // The lock only ever guards a file read+write, never leaving any
+    // in-memory state inconsistent — so a poisoned lock (some other holder
+    // panicked mid-critical-section) is safe to recover from rather than
+    // treating one panic as "config persistence is now broken forever".
+    let _guard = state.config_lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let path = config_path(app)?;
+    let mut cfg = crate::config::load(&path);
+    f(&mut cfg);
+    crate::config::save(&path, &cfg).map_err(|e| e.to_string())?;
+    Ok(cfg)
+}
+
 /// One-time migration for the io.jonathanlaf.voyagerhud -> io.jonathanlaf.layerhud
 /// identifier rename: if this machine has a config saved under the old
 /// identifier's app-support directory and none yet under the new one, copy it
@@ -64,7 +86,13 @@ pub fn migrate_legacy_identifier(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     }
     std::fs::create_dir_all(&new_dir).map_err(|e| e.to_string())?;
-    std::fs::copy(old_dir.join("config.json"), new_dir.join("config.json")).map_err(|e| e.to_string())?;
+    // Route config.json through load()/save() rather than a raw fs::copy, so
+    // the migrated file gets the same clamping and atomic write-then-rename
+    // every other writer gets — this runs before grab::spawn/tray::build
+    // start so nothing else touches config.json yet, but there's no reason
+    // for this to be the one path that doesn't go through the shared helpers.
+    let legacy_cfg = crate::config::load(&old_dir.join("config.json"));
+    crate::config::save(&new_dir.join("config.json"), &legacy_cfg).map_err(|e| e.to_string())?;
     if old_dir.join("layout.json").exists() {
         let _ = std::fs::copy(old_dir.join("layout.json"), new_dir.join("layout.json"));
     }
@@ -97,11 +125,10 @@ pub async fn refresh_layout(app: AppHandle, url: String) -> Result<Value, String
     let cache = cache_path(&app)?;
     match fetch_from_oryx(&hash).await {
         Ok(v) => {
-            let cfg_path = config_path(&app)?;
-            let mut c = crate::config::load(&cfg_path);
-            c.oryx_url = hash;
-            c.last_refresh = Some(chrono_free_now());
-            crate::config::save(&cfg_path, &c).map_err(|e| e.to_string())?;
+            update_config(&app, |c| {
+                c.oryx_url = hash;
+                c.last_refresh = Some(chrono_free_now());
+            })?;
             let json_str = serde_json::to_string(&v).map_err(|e| e.to_string())?;
             std::fs::write(&cache, json_str).map_err(|e| e.to_string())?;
             let _ = { use tauri::Emitter; app.emit("layout-refreshed", serde_json::json!({})) };
@@ -141,18 +168,36 @@ pub fn get_config(app: AppHandle) -> Result<crate::config::Config, String> {
 
 #[tauri::command]
 pub fn set_config(app: AppHandle, mut config: crate::config::Config) -> Result<(), String> {
+    // Tauri binds this arg by parameter name to the JSON key the frontend
+    // sends (`invoke('set_config', { config: cfg })` in settings.js) — it
+    // must stay named `config`, not renamed for internal clarity, or every
+    // call is rejected before the body ever runs.
     config.clamp();
-    crate::config::save(&config_path(&app)?, &config).map_err(|e| e.to_string())?;
+    // window/oryx_url/last_refresh are owned by other writers (the overlay's
+    // drag/resize handler, and refresh_layout — which the tray's "Refresh
+    // layout" item can trigger with no Settings window open at all), not by
+    // this command; keep whatever's already on disk for them rather than
+    // whatever the Settings page happened to have in memory when it sent this.
+    // NOTE: this means these 3 fields can never be changed via set_config —
+    // if you add a settings.js `bind()` for e.g. `oryx_url`, it will send
+    // fine and silently do nothing forever. Route new oryx_url changes
+    // through refresh_layout instead, the way the "Fetch" button already does.
+    let merged = update_config(&app, move |cfg| {
+        let window = cfg.window.take();
+        let oryx_url = std::mem::take(&mut cfg.oryx_url);
+        let last_refresh = cfg.last_refresh.take();
+        *cfg = config;
+        cfg.window = window;
+        cfg.oryx_url = oryx_url;
+        cfg.last_refresh = last_refresh;
+    })?;
     use tauri::Emitter;
-    app.emit("config-changed", &config).map_err(|e| e.to_string())
+    app.emit("config-changed", &merged).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn clear_window_position(app: AppHandle) -> Result<(), String> {
-    let path = config_path(&app)?;
-    let mut cfg = crate::config::load(&path);
-    cfg.window = None;
-    crate::config::save(&path, &cfg).map_err(|e| e.to_string())?;
+    update_config(&app, |cfg| cfg.window = None)?;
     if let Some(w) = app.get_webview_window("overlay") {
         let _ = w.center();
     }

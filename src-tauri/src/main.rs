@@ -61,14 +61,12 @@ fn main() {
             }
             if matches!(event, tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_)) {
                 let app = window.app_handle();
-                let Ok(path) = oryx::config_path(app) else { return; };
-                let mut cfg = config::load(&path);
                 let scale = window.scale_factor().unwrap_or(1.0);
                 if let (Ok(pos), Ok(size)) = (window.outer_position(), window.inner_size()) {
                     let pos = pos.to_logical::<f64>(scale);
                     let size = size.to_logical::<f64>(scale);
-                    cfg.window = Some(config::WindowRect { x: pos.x, y: pos.y, w: size.width, h: size.height });
-                    if let Err(e) = config::save(&path, &cfg) {
+                    let rect = config::WindowRect { x: pos.x, y: pos.y, w: size.width, h: size.height };
+                    if let Err(e) = oryx::update_config(app, |cfg| cfg.window = Some(rect)) {
                         eprintln!("layer-hud: failed to persist window rect: {e}");
                     }
                 }
