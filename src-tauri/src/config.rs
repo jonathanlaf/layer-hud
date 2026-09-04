@@ -26,6 +26,14 @@ pub struct Config {
     pub text_color: String,
     pub legend_color: String,
     pub border_color: String,
+    pub base_outline_enabled: bool,
+    pub base_outline_color: String,
+    pub base_outline_opacity: f64,
+    pub base_outline_width: f64,
+    pub grab_outline_enabled: bool,
+    pub grab_outline_color: String,
+    pub grab_outline_opacity: f64,
+    pub grab_outline_width: f64,
     pub window: Option<WindowRect>,
     pub last_refresh: Option<String>,
 }
@@ -47,6 +55,14 @@ impl Default for Config {
             text_color: "#ffffff".into(),
             legend_color: "#ffffff".into(),
             border_color: "#ffffff".into(),
+            base_outline_enabled: true,
+            base_outline_color: "#78b4ff".into(),
+            base_outline_opacity: 0.6,
+            base_outline_width: 2.0,
+            grab_outline_enabled: true,
+            grab_outline_color: "#ffdc78".into(),
+            grab_outline_opacity: 0.9,
+            grab_outline_width: 2.0,
             window: None,
             last_refresh: None,
         }
@@ -65,6 +81,10 @@ impl Config {
         self.border_width = self.border_width.clamp(0.0, 5.0);
         self.key_fill_opacity = self.key_fill_opacity.clamp(0.0, 1.0);
         self.padding = self.padding.clamp(0.0, 60.0);
+        self.base_outline_opacity = self.base_outline_opacity.clamp(0.0, 1.0);
+        self.base_outline_width = self.base_outline_width.clamp(0.0, 5.0);
+        self.grab_outline_opacity = self.grab_outline_opacity.clamp(0.0, 1.0);
+        self.grab_outline_width = self.grab_outline_width.clamp(0.0, 5.0);
     }
 }
 
@@ -121,6 +141,14 @@ mod tests {
         assert_eq!(c.text_color, "#ffffff");
         assert_eq!(c.legend_color, "#ffffff");
         assert_eq!(c.border_color, "#ffffff");
+        assert!(c.base_outline_enabled);
+        assert_eq!(c.base_outline_color, "#78b4ff");
+        assert_eq!(c.base_outline_opacity, 0.6);
+        assert_eq!(c.base_outline_width, 2.0);
+        assert!(c.grab_outline_enabled);
+        assert_eq!(c.grab_outline_color, "#ffdc78");
+        assert_eq!(c.grab_outline_opacity, 0.9);
+        assert_eq!(c.grab_outline_width, 2.0);
     }
 
     #[test]
@@ -136,6 +164,8 @@ mod tests {
         assert_eq!(c.border_opacity, 0.35);
         assert_eq!(c.border_width, 1.0);
         assert_eq!(c.bg_color, "#141418");
+        assert!(c.base_outline_enabled);
+        assert_eq!(c.grab_outline_width, 2.0);
     }
 
     #[test]
@@ -147,6 +177,10 @@ mod tests {
             border_width: 999.0,
             key_fill_opacity: 2.0,
             padding: -10.0,
+            base_outline_opacity: -1.0,
+            base_outline_width: -3.0,
+            grab_outline_opacity: 5.0,
+            grab_outline_width: 999.0,
             ..Config::default()
         };
         c.clamp();
@@ -156,6 +190,10 @@ mod tests {
         assert_eq!(c.border_width, 5.0);
         assert_eq!(c.key_fill_opacity, 1.0);
         assert_eq!(c.padding, 0.0);
+        assert_eq!(c.base_outline_opacity, 0.0);
+        assert_eq!(c.base_outline_width, 0.0);
+        assert_eq!(c.grab_outline_opacity, 1.0);
+        assert_eq!(c.grab_outline_width, 5.0);
     }
 
     #[test]

@@ -22,14 +22,18 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
 #startup-error { position: absolute; inset: 0; display: flex; align-items: center;
                  justify-content: center; text-align: center; padding: 12px;
                  font-size: 13px; opacity: 0.9; }
-body[data-base="0"] #board { outline: 2px solid rgba(120,180,255,0.6); outline-offset: -2px; }
+body[data-base="0"] #board { outline: var(--base-outline-width, 2px) solid var(--base-outline, rgba(120,180,255,0.6)); outline-offset: -2px; }
 body.offline #board { opacity: 0.4; }
 body.offline #badge::after { content: " — Keymapp offline"; color: #ff9c9c; }
-body.grab #board { outline: 2px solid rgba(255,220,120,0.9); outline-offset: -2px; }
-.resize-handle { display: none; position: fixed; width: 18px; height: 18px; z-index: 10;
-                 border: 2px solid rgba(255,220,120,0.9); }
+body.grab #board { outline: var(--grab-outline-width, 2px) solid var(--grab-outline, rgba(255,220,120,0.9)); outline-offset: -2px; }
+/* Inset 6px from the true corner and given their own small radius so the
+   L-bracket sits past #board's 12px curve instead of colliding with it —
+   at the literal corner (the old 0,0 position) the bracket's sharp 90°
+   corner overlapped the outline's rounded one, reading as a doubled edge. */
+.resize-handle { display: none; position: fixed; width: 14px; height: 14px; z-index: 10;
+                 border: var(--grab-outline-width, 2px) solid var(--grab-outline, rgba(255,220,120,0.9)); }
 body.grab .resize-handle { display: block; }
-.resize-handle.northwest { top: 0; left: 0; border-right: none; border-bottom: none; cursor: nwse-resize; }
-.resize-handle.northeast { top: 0; right: 0; border-left: none; border-bottom: none; cursor: nesw-resize; }
-.resize-handle.southwest { bottom: 0; left: 0; border-right: none; border-top: none; cursor: nesw-resize; }
-.resize-handle.southeast { bottom: 0; right: 0; border-left: none; border-top: none; cursor: nwse-resize; }
+.resize-handle.northwest { top: 6px; left: 6px; border-right: none; border-bottom: none; border-top-left-radius: 4px; cursor: nwse-resize; }
+.resize-handle.northeast { top: 6px; right: 6px; border-left: none; border-bottom: none; border-top-right-radius: 4px; cursor: nesw-resize; }
+.resize-handle.southwest { bottom: 6px; left: 6px; border-right: none; border-top: none; border-bottom-left-radius: 4px; cursor: nesw-resize; }
+.resize-handle.southeast { bottom: 6px; right: 6px; border-left: none; border-top: none; border-bottom-right-radius: 4px; cursor: nwse-resize; }
