@@ -19,7 +19,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Tag must be reachable from main
@@ -40,7 +40,7 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Verify tag matches tauri.conf.json version
         run: |
@@ -77,6 +77,6 @@ jobs:
       - name: Attest build provenance
         # Depends on tauri.conf.json's bundle.targets including "dmg" — if
         # that's ever reverted to just ["app"], this glob matches nothing.
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: 'src-tauri/target/release/bundle/dmg/*.dmg'
