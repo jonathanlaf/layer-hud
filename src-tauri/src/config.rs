@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::Path;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -26,7 +27,20 @@ pub struct Config {
     pub text_color: String,
     pub legend_color: String,
     pub border_color: String,
-    pub window: Option<WindowRect>,
+    // Keyed by a per-monitor identifier (see oryx::monitor_key) rather than
+    // a single rect, so the overlay remembers where it goes on each display
+    // you use it on instead of fighting over one shared position. Renamed
+    // from the old `window: Option<WindowRect>` (not reused/migrated) —
+    // reusing that key with an incompatible type would make an old
+    // config.json fail to deserialize as this whole struct, silently
+    // resetting every other setting to defaults, not just the window rect.
+    pub window_by_monitor: HashMap<String, WindowRect>,
+    // Which monitor (by the same key as window_by_monitor) the overlay was
+    // last positioned on. A freshly-created window's current_monitor() just
+    // reflects wherever the OS happened to place it (usually the primary
+    // display) — not necessarily where the user left it — so restoring the
+    // right saved rect on startup needs this recorded separately.
+    pub last_monitor: Option<String>,
     pub last_refresh: Option<String>,
 }
 
@@ -47,7 +61,8 @@ impl Default for Config {
             text_color: "#ffffff".into(),
             legend_color: "#ffffff".into(),
             border_color: "#ffffff".into(),
-            window: None,
+            window_by_monitor: HashMap::new(),
+            last_monitor: None,
             last_refresh: None,
         }
     }
@@ -111,7 +126,8 @@ mod tests {
         assert_eq!(c.opacity, 0.85);
         assert_eq!(c.grab_combo, vec!["cmd".to_string(), "alt".to_string()]);
         assert!(c.use_oryx_colors);
-        assert!(c.window.is_none());
+        assert!(c.window_by_monitor.is_empty());
+        assert!(c.last_monitor.is_none());
         assert_eq!(c.char_opacity, 1.0);
         assert_eq!(c.border_opacity, 0.35);
         assert_eq!(c.border_width, 1.0);
@@ -176,7 +192,7 @@ mod tests {
         let path = dir.join("config.json");
         let mut c = Config::default();
         c.opacity = 0.5;
-        c.window = Some(WindowRect { x: 10.0, y: 20.0, w: 800.0, h: 300.0 });
+        c.window_by_monitor.insert("Built-in Display".into(), WindowRect { x: 10.0, y: 20.0, w: 800.0, h: 300.0 });
         save(&path, &c).unwrap();
         assert_eq!(load(&path), c);
     }

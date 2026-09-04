@@ -47,6 +47,57 @@ fn cache_path(app: &AppHandle) -> Result<PathBuf, String> {
         .map_err(|e| e.to_string())
 }
 
+/// Stable-enough key for "which physical display is this" across launches —
+/// the monitor's name (e.g. "Built-in Retina Display") when macOS reports
+/// one, falling back to its resolution if not. Two identical external
+/// monitor models sharing a name is an accepted, rare edge case for a
+/// personal utility app.
+pub fn monitor_key(mon: &tauri::Monitor) -> String {
+    match mon.name() {
+        Some(name) if !name.is_empty() => name.clone(),
+        _ => {
+            let size = mon.size();
+            format!("{}x{}", size.width, size.height)
+        }
+    }
+}
+
+/// A window occupying 30% of the monitor, centered on it — the starting
+/// point for a monitor the overlay has never been positioned on before.
+pub fn default_rect_for_monitor(mon: &tauri::Monitor) -> crate::config::WindowRect {
+    let scale = mon.scale_factor();
+    let pos = mon.position().to_logical::<f64>(scale);
+    let size = mon.size().to_logical::<f64>(scale);
+    let w = size.width * 0.3;
+    let h = size.height * 0.3;
+    crate::config::WindowRect {
+        x: pos.x + (size.width - w) / 2.0,
+        y: pos.y + (size.height - h) / 2.0,
+        w,
+        h,
+    }
+}
+
+/// Whether a saved rect's origin still falls within a monitor's *current*
+/// bounds. The same monitor (same monitor_key) can still go stale — a
+/// resolution/scaling change or a rearranged multi-monitor layout moves its
+/// live position()/size() without changing its name — so a rect that was
+/// valid when saved isn't automatically still valid now.
+pub fn rect_fits_monitor(rect: &crate::config::WindowRect, mon: &tauri::Monitor) -> bool {
+    let scale = mon.scale_factor();
+    let pos = mon.position().to_logical::<f64>(scale);
+    let size = mon.size().to_logical::<f64>(scale);
+    rect.x >= pos.x && rect.x < pos.x + size.width && rect.y >= pos.y && rect.y < pos.y + size.height
+}
+
+/// Position and size a window from a saved rect — the one place both the
+/// startup restore and "reset position" apply a WindowRect, so a future
+/// change to how that's done (e.g. clamping) only needs to happen once.
+pub fn apply_rect(window: &tauri::WebviewWindow, rect: &crate::config::WindowRect) {
+    let _ = window.set_position(tauri::LogicalPosition::new(rect.x, rect.y));
+    let _ = window.set_size(tauri::LogicalSize::new(rect.w, rect.h));
+}
+
 /// Load, mutate and save config.json as one atomic step. config.json is
 /// written from several independent places (this module's commands, the
 /// window-drag handler in main.rs) with no other coordination between them;
@@ -183,11 +234,11 @@ pub fn set_config(app: AppHandle, mut config: crate::config::Config) -> Result<(
     // fine and silently do nothing forever. Route new oryx_url changes
     // through refresh_layout instead, the way the "Fetch" button already does.
     let merged = update_config(&app, move |cfg| {
-        let window = cfg.window.take();
+        let window_by_monitor = std::mem::take(&mut cfg.window_by_monitor);
         let oryx_url = std::mem::take(&mut cfg.oryx_url);
         let last_refresh = cfg.last_refresh.take();
         *cfg = config;
-        cfg.window = window;
+        cfg.window_by_monitor = window_by_monitor;
         cfg.oryx_url = oryx_url;
         cfg.last_refresh = last_refresh;
     })?;
@@ -197,9 +248,22 @@ pub fn set_config(app: AppHandle, mut config: crate::config::Config) -> Result<(
 
 #[tauri::command]
 pub fn clear_window_position(app: AppHandle) -> Result<(), String> {
-    update_config(&app, |cfg| cfg.window = None)?;
     if let Some(w) = app.get_webview_window("overlay") {
-        let _ = w.center();
+        if let Ok(Some(mon)) = w.current_monitor() {
+            let key = monitor_key(&mon);
+            update_config(&app, {
+                let key = key.clone();
+                move |cfg| {
+                    cfg.window_by_monitor.remove(&key);
+                    cfg.last_monitor = Some(key.clone());
+                }
+            })?;
+            // Reset means "start over on this monitor" — the same 30%-
+            // centered rect a monitor gets the first time it's ever seen.
+            apply_rect(&w, &default_rect_for_monitor(&mon));
+        } else {
+            let _ = w.center();
+        }
     }
     Ok(())
 }
