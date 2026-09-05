@@ -35,15 +35,23 @@ pub struct Config {
     pub grab_outline_color: String,
     pub grab_outline_opacity: f64,
     pub grab_outline_width: f64,
-    pub base_outline_enabled: bool,
-    pub base_outline_color: String,
-    pub base_outline_opacity: f64,
-    pub base_outline_width: f64,
-    pub grab_outline_enabled: bool,
-    pub grab_outline_color: String,
-    pub grab_outline_opacity: f64,
-    pub grab_outline_width: f64,
-    pub window: Option<WindowRect>,
+    pub key_font_family: String,
+    pub key_font_size: f64,
+    pub key_font_bold: bool,
+    pub key_font_italic: bool,
+    pub key_font_ligatures: bool,
+    pub legend_font_family: String,
+    pub legend_font_size: f64,
+    pub legend_font_bold: bool,
+    pub legend_font_italic: bool,
+    pub legend_font_ligatures: bool,
+    pub layer_name_font_family: String,
+    pub layer_name_font_size: f64,
+    pub layer_name_font_bold: bool,
+    pub layer_name_font_italic: bool,
+    pub layer_name_font_ligatures: bool,
+    pub window_by_monitor: HashMap<String, WindowRect>,
+    pub last_monitor: Option<String>,
     pub last_refresh: Option<String>,
 }
 
@@ -72,15 +80,13 @@ impl Default for Config {
             grab_outline_color: "#ffdc78".into(),
             grab_outline_opacity: 0.9,
             grab_outline_width: 2.0,
-            base_outline_enabled: true,
-            base_outline_color: "#78b4ff".into(),
-            base_outline_opacity: 0.6,
-            base_outline_width: 2.0,
-            grab_outline_enabled: true,
-            grab_outline_color: "#ffdc78".into(),
-            grab_outline_opacity: 0.9,
-            grab_outline_width: 2.0,
-            window: None,
+            key_font_family: "".into(), key_font_size: 1.0,
+            key_font_bold: false, key_font_italic: false, key_font_ligatures: false,
+            legend_font_family: "".into(), legend_font_size: 1.0,
+            legend_font_bold: false, legend_font_italic: false, legend_font_ligatures: false,
+            layer_name_font_family: "".into(), layer_name_font_size: 11.0,
+            layer_name_font_bold: false, layer_name_font_italic: false, layer_name_font_ligatures: false,
+            window_by_monitor: HashMap::new(), last_monitor: None,
             last_refresh: None,
         }
     }
@@ -102,10 +108,9 @@ impl Config {
         self.base_outline_width = self.base_outline_width.clamp(0.0, 5.0);
         self.grab_outline_opacity = self.grab_outline_opacity.clamp(0.0, 1.0);
         self.grab_outline_width = self.grab_outline_width.clamp(0.0, 5.0);
-        self.base_outline_opacity = self.base_outline_opacity.clamp(0.0, 1.0);
-        self.base_outline_width = self.base_outline_width.clamp(0.0, 5.0);
-        self.grab_outline_opacity = self.grab_outline_opacity.clamp(0.0, 1.0);
-        self.grab_outline_width = self.grab_outline_width.clamp(0.0, 5.0);
+        self.key_font_size = self.key_font_size.clamp(0.5, 2.0);
+        self.legend_font_size = self.legend_font_size.clamp(0.5, 2.0);
+        self.layer_name_font_size = self.layer_name_font_size.clamp(8.0, 24.0);
     }
 }
 
@@ -165,14 +170,15 @@ mod tests {
         assert_eq!(c.border_color, "#ffffff");
         assert!(c.base_outline_enabled);
         assert!(c.grab_outline_enabled);
-        assert!(c.base_outline_enabled);
         assert_eq!(c.base_outline_color, "#78b4ff");
         assert_eq!(c.base_outline_opacity, 0.6);
         assert_eq!(c.base_outline_width, 2.0);
-        assert!(c.grab_outline_enabled);
         assert_eq!(c.grab_outline_color, "#ffdc78");
         assert_eq!(c.grab_outline_opacity, 0.9);
         assert_eq!(c.grab_outline_width, 2.0);
+        assert_eq!(c.key_font_size, 1.0);
+        assert_eq!(c.legend_font_size, 1.0);
+        assert_eq!(c.layer_name_font_size, 11.0);
     }
 
     #[test]
@@ -188,7 +194,6 @@ mod tests {
         assert_eq!(c.border_opacity, 0.35);
         assert_eq!(c.border_width, 1.0);
         assert_eq!(c.bg_color, "#141418");
-        assert!(c.base_outline_enabled);
         assert!(c.base_outline_enabled);
         assert_eq!(c.grab_outline_width, 2.0);
     }
@@ -206,10 +211,6 @@ mod tests {
             base_outline_width: -3.0,
             grab_outline_opacity: 5.0,
             grab_outline_width: 999.0,
-            base_outline_opacity: -1.0,
-            base_outline_width: -3.0,
-            grab_outline_opacity: 5.0,
-            grab_outline_width: 999.0,
             ..Config::default()
         };
         c.clamp();
@@ -219,10 +220,6 @@ mod tests {
         assert_eq!(c.border_width, 5.0);
         assert_eq!(c.key_fill_opacity, 1.0);
         assert_eq!(c.padding, 0.0);
-        assert_eq!(c.base_outline_opacity, 0.0);
-        assert_eq!(c.base_outline_width, 0.0);
-        assert_eq!(c.grab_outline_opacity, 1.0);
-        assert_eq!(c.grab_outline_width, 5.0);
         assert_eq!(c.base_outline_opacity, 0.0);
         assert_eq!(c.base_outline_width, 0.0);
         assert_eq!(c.grab_outline_opacity, 1.0);

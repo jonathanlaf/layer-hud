@@ -131,11 +131,36 @@ for (const [id, field] of [
   ['base-outline-width', 'base_outline_width'],
   ['grab-outline-opacity', 'grab_outline_opacity'],
   ['grab-outline-width', 'grab_outline_width'],
+  ['key-font-size', 'key_font_size'],
+  ['legend-font-size', 'legend_font_size'],
+  ['layer-name-font-size', 'layer_name_font_size'],
 ]) bindNumeric(id, field);
 
 bindCheckbox('colors-toggle', 'use_oryx_colors');
 bindCheckbox('base-outline-enabled', 'base_outline_enabled');
 bindCheckbox('grab-outline-enabled', 'grab_outline_enabled');
+
+const bindFontCheckbox = (id, field) => {
+  $(id).checked = cfg[field];
+  $(id).addEventListener('change', (e) => commit(field, e.target.checked));
+};
+const fontFamilies = await invoke('list_system_fonts');
+for (const prefix of ['key', 'legend', 'layer-name']) {
+  const fieldPrefix = prefix.replace(/-/g, '_');
+  const select = $(`${prefix}-font-family`);
+  for (const name of fontFamilies) {
+    const option = document.createElement('option');
+    option.value = name;
+    option.textContent = name;
+    select.appendChild(option);
+  }
+  const family = `${fieldPrefix}_font_family`;
+  select.value = cfg[family];
+  select.addEventListener('change', (e) => commit(family, e.target.value));
+  bindFontCheckbox(`${prefix}-font-bold`, `${fieldPrefix}_font_bold`);
+  bindFontCheckbox(`${prefix}-font-italic`, `${fieldPrefix}_font_italic`);
+  bindFontCheckbox(`${prefix}-font-ligatures`, `${fieldPrefix}_font_ligatures`);
+}
 
 try {
   $('autostart').checked = await invoke('plugin:autostart|is_enabled');
