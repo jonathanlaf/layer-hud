@@ -1,6 +1,6 @@
 use serde_json::{json, Value};
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 const GRAPHQL_URL: &str = "https://oryx.zsa.io/graphql";
 const QUERY: &str = "query getLayout($hashId: String!, $revisionId: String!, $geometry: String) { layout(hashId: $hashId, revisionId: $revisionId, geometry: $geometry) { title revision { title config layers { position title keys } } } }";
@@ -45,6 +45,10 @@ fn cache_path(app: &AppHandle) -> Result<PathBuf, String> {
         .app_config_dir()
         .map(|dir| dir.join("layout.json"))
         .map_err(|e| e.to_string())
+}
+
+fn legacy_cache_path() -> Option<PathBuf> {
+    std::env::var_os("HOME").map(|home| PathBuf::from(home).join("Library/Application Support/io.jonathanlaf.voyagerhud/layout.json"))
 }
 
 /// Stable-enough key for "which physical display is this" across launches —
@@ -135,14 +139,11 @@ where
 /// over so existing settings aren't silently reset to defaults on upgrade.
 pub fn migrate_legacy_identifier(app: &AppHandle) -> Result<(), String> {
     let new_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-    if new_dir.join("config.json").exists() {
-        return Ok(());
-    }
     let Some(home) = std::env::var_os("HOME") else {
         return Ok(());
     };
     let old_dir = PathBuf::from(home).join("Library/Application Support/io.jonathanlaf.voyagerhud");
-    if !old_dir.join("config.json").exists() {
+    if !old_dir.exists() {
         return Ok(());
     }
     std::fs::create_dir_all(&new_dir).map_err(|e| e.to_string())?;
@@ -151,9 +152,11 @@ pub fn migrate_legacy_identifier(app: &AppHandle) -> Result<(), String> {
     // every other writer gets — this runs before grab::spawn/tray::build
     // start so nothing else touches config.json yet, but there's no reason
     // for this to be the one path that doesn't go through the shared helpers.
-    let legacy_cfg = crate::config::load(&old_dir.join("config.json"));
-    crate::config::save(&new_dir.join("config.json"), &legacy_cfg).map_err(|e| e.to_string())?;
-    if old_dir.join("layout.json").exists() {
+    if !new_dir.join("config.json").exists() && old_dir.join("config.json").exists() {
+        let legacy_cfg = crate::config::load(&old_dir.join("config.json"));
+        crate::config::save(&new_dir.join("config.json"), &legacy_cfg).map_err(|e| e.to_string())?;
+    }
+    if !new_dir.join("layout.json").exists() && old_dir.join("layout.json").exists() {
         let _ = std::fs::copy(old_dir.join("layout.json"), new_dir.join("layout.json"));
     }
     Ok(())
@@ -198,7 +201,9 @@ pub async fn refresh_layout(app: AppHandle, url: String) -> Result<Value, String
             Err(e)
         }
         Err(FetchError::Transport(e)) => {
-            let cached = std::fs::read_to_string(&cache).map_err(|_| e.clone())?;
+            let cached = std::fs::read_to_string(&cache)
+                .or_else(|_| legacy_cache_path().ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "no legacy cache")).and_then(std::fs::read_to_string))
+                .map_err(|_| e.clone())?;
             let mut v: Value = serde_json::from_str(&cached).map_err(|_| e)?;
             if let Value::Object(ref mut obj) = v {
                 obj.insert("stale".to_string(), json!(true));
@@ -211,7 +216,10 @@ pub async fn refresh_layout(app: AppHandle, url: String) -> Result<Value, String
 #[tauri::command]
 pub async fn load_layout(app: AppHandle) -> Result<Value, String> {
     let cache = cache_path(&app)?;
-    if let Ok(s) = std::fs::read_to_string(&cache) {
+    let cached = std::fs::read_to_string(&cache).or_else(|_| {
+        legacy_cache_path().ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "no legacy cache")).and_then(std::fs::read_to_string)
+    });
+    if let Ok(s) = cached {
         if let Ok(v) = serde_json::from_str::<Value>(&s) {
             return Ok(v);
         }
@@ -275,6 +283,39 @@ pub fn clear_window_position(app: AppHandle) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+#[tauri::command]
+pub fn export_config(app: AppHandle) -> Result<String, String> {
+    let cfg = crate::config::load(&config_path(&app)?);
+    serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn import_config(app: AppHandle, contents: String) -> Result<crate::config::Config, String> {
+    let mut imported: crate::config::Config = serde_json::from_str(&contents)
+        .map_err(|e| format!("Invalid settings JSON: {e}"))?;
+    imported.clamp();
+    let result = update_config(&app, |cfg| *cfg = imported.clone())?;
+    let _ = app.emit("config-changed", result.clone());
+    Ok(result)
+}
+
+#[tauri::command]
+pub fn reset_config(app: AppHandle) -> Result<crate::config::Config, String> {
+    let result = update_config(&app, |cfg| *cfg = crate::config::Config::default())?;
+    if let Some(window) = app.get_webview_window("overlay") {
+        if let Ok(Some(mon)) = window.current_monitor() {
+            apply_rect(&window, &default_rect_for_monitor(&mon));
+        }
+    }
+    let _ = app.emit("config-changed", result.clone());
+    Ok(result)
+}
+
+#[tauri::command]
+pub fn is_keymapp_online(app: AppHandle) -> bool {
+    app.state::<crate::state::HudState>().keymapp_online.load(std::sync::atomic::Ordering::SeqCst)
 }
 
 fn chrono_free_now() -> String {

@@ -3,7 +3,11 @@
 [![CI](https://github.com/jonathanlaf/layer-hud/actions/workflows/ci.yml/badge.svg)](https://github.com/jonathanlaf/layer-hud/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/jonathanlaf/layer-hud?include_prereleases)](https://github.com/jonathanlaf/layer-hud/releases/latest)
 
-A macOS overlay application that displays your ZSA Voyager keyboard layer state in real-time. Layer HUD fetches your keyboard layout from Oryx's GraphQL API and tracks live layer state via Keymapp/kontroll, renders layers on a transparent overlay, and mirrors the Oryx color scheme—keeping you informed of your current layer without interrupting your workflow.
+A macOS menu-bar utility that currently displays your ZSA Voyager keyboard layer state in real time. Layer HUD downloads the layout from Oryx, tracks the active layer through Keymapp/kontroll, and renders a click-through transparent overlay over your work area. It shows the two keyboard halves, layer-trigger and alternate-character hints, shift indicators, Oryx colors, and the current layer name without interrupting your workflow. Support for additional ZSA keyboards is planned.
+
+When Oryx or Keymapp is unavailable, Layer HUD uses its local layout cache and clearly marks the overlay as offline. A tray menu opens the layer/icon legend and Settings, where the overlay, colors, fonts, icons, resizing, and complete JSON settings backup/restore can be configured.
+
+This project is fully vibe coded as an experiment in building a useful native utility with [Claude](https://www.anthropic.com/claude) and [OpenAI Codex](https://openai.com/codex/).
 
 ## Prerequisites
 
@@ -31,10 +35,11 @@ Launch it from Applications or Finder.
 
 ## Usage
 
-- **Tray Menu:** Click the Layer HUD icon in the macOS menu bar for Refresh layout, Pin overlay, Settings…, and Quit
-- **Move Overlay:** Hold ⌘⌥ (Command+Option) and drag the overlay to reposition it
-- **Settings:** Use the tray menu's "Settings…" item to access settings (Oryx layout URL, opacity, grab combo, color scheme); the overlay itself is click-through and doesn't respond to clicks
-- **Layer Colors:** Layer background colors are mirrored from your Oryx layout if "Use Oryx Colors" is enabled in settings
+- **Tray Menu:** Click the Layer HUD icon in the macOS menu bar for Refresh layout, the icon/layer legend, Settings, Pin overlay, and Quit
+- **Move and resize:** Hold the configured grab shortcut (⌘⌥ by default) and drag the overlay; resizing keeps the keyboard proportions and stores the window per monitor
+- **Settings:** Configure the Oryx layout, appearance, colors, fonts, icons, hotkey, and startup behavior. Export or import the complete settings set as a JSON file, or reset everything to defaults
+- **Offline use:** A successful layout fetch is cached locally, so the last known keyboard layout remains available when Oryx is down
+- **Layer colors:** Layer colors are mirrored from your Oryx layout when “Use Oryx layer colors” is enabled
 
 ## Troubleshooting
 

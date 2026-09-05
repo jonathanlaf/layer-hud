@@ -56,7 +56,14 @@ export function renderBoard(layoutJson, config) {
   const rects = keyRects();
   const badge = document.createElement('div');
   badge.id = 'badge';
+  badge.style.top = `${Math.max(4, offY)}px`;
   board.appendChild(badge);
+  const offline = document.createElement('div');
+  offline.id = 'offline-indicator';
+  offline.textContent = 'OFFLINE';
+  offline.style.top = `${offY + (BOARD_UNITS.h * unit) / 2}px`;
+  offline.hidden = !document.body.classList.contains('offline');
+  board.appendChild(offline);
   for (const layer of layers) {
     const el = document.createElement('div');
     el.className = 'layer';
@@ -66,6 +73,8 @@ export function renderBoard(layoutJson, config) {
       const r = rects[i];
       const k = document.createElement('div');
       k.className = 'key';
+      if (i === 24 || i === 25) k.classList.add('thumb-left');
+      if (i === 50 || i === 51) k.classList.add('thumb-right');
       k.style.cssText = `left:${offX + r.x * unit}px;top:${offY + r.y * unit}px;width:${r.w * unit}px;height:${r.h * unit}px`;
       if (config.use_oryx_colors && key.glowColor) k.style.background = hexTint(key.glowColor);
       const custom = key.customLabel;
@@ -127,7 +136,7 @@ function fontVars(style, prefix, config) {
   style.setProperty(`--${cssPrefix}-font-family`, family ? JSON.stringify(family) : '-apple-system');
   style.setProperty(`--${cssPrefix}-font-weight`, config[`${prefix}_font_bold`] ? '700' : '400');
   style.setProperty(`--${cssPrefix}-font-style`, config[`${prefix}_font_italic`] ? 'italic' : 'normal');
-  style.setProperty(`--${cssPrefix}-font-ligatures`, config[`${prefix}_font_ligatures`] ? 'common-ligatures' : 'none');
+  style.setProperty(`--${cssPrefix}-font-ligatures`, config.font_ligatures === false ? 'none' : 'common-ligatures');
 }
 
 function applyTheme(config) {
@@ -139,6 +148,9 @@ function applyTheme(config) {
   st.setProperty('--char-opacity', config.char_opacity);
   st.setProperty('--text-color', config.text_color);
   st.setProperty('--legend-color', config.legend_color);
+  st.setProperty('--layer-name-color', config.text_color);
+  st.setProperty('--layer-name-border', hexToRgba(config.border_color, config.border_opacity));
+  st.setProperty('--layer-name-opacity', config.char_opacity);
   st.setProperty('--shift-color', config.shift_color ?? '#ffffff');
   st.setProperty('--alternate-color', config.alternate_color ?? '#ffffff');
   st.setProperty('--shift-icon-scale', config.shift_icon_scale ?? 1);
@@ -176,14 +188,16 @@ export function setActiveLayer(n) {
 
 export function setOffline(off) {
   document.body.classList.toggle('offline', off);
+  const indicator = document.getElementById('offline-indicator');
+  if (indicator) indicator.hidden = !off;
 }
 
-function showStartupError() {
+function showStartupError(error) {
   const board = document.getElementById('board');
   board.innerHTML = '';
   const msg = document.createElement('div');
   msg.id = 'startup-error';
-  msg.textContent = 'No layout — set Oryx URL in Settings';
+  msg.textContent = error ? `No layout — ${error}` : 'No layout — set Oryx URL in Settings';
   board.appendChild(msg);
 }
 
@@ -216,6 +230,7 @@ async function main() {
     renderBoard(await invoke('load_layout'), await invoke('get_config'));
     setActiveLayer(lastLayer);
   });
+  try { setOffline(!(await invoke('is_keymapp_online'))); } catch {}
   document.getElementById('board').addEventListener('mousedown', (e) => {
     if (document.body.classList.contains('grab')) {
       window.__TAURI__.window.getCurrentWindow().startDragging();
@@ -254,10 +269,11 @@ async function main() {
     setActiveLayer(lastLayer);
     if (layout.stale) document.getElementById('badge').textContent += ' (cached)';
   } catch (err) {
-    showStartupError();
+    console.error('layer-hud: startup layout failed:', err);
+    showStartupError(err);
   }
 }
 main().catch((err) => {
   console.error('layer-hud startup failed:', err);
-  showStartupError();
+  showStartupError(err);
 });
