@@ -109,6 +109,10 @@ function applyTheme(config) {
   st.setProperty('--border-color', hexToRgba(config.border_color, config.border_opacity));
   st.setProperty('--border-width', `${config.border_width}px`);
   st.setProperty('--key-fill', hexToRgba(config.key_fill_color, config.key_fill_opacity));
+  st.setProperty('--base-outline', hexToRgba(config.base_outline_color, config.base_outline_opacity));
+  st.setProperty('--base-outline-width', `${config.base_outline_enabled ? config.base_outline_width : 0}px`);
+  st.setProperty('--grab-outline', hexToRgba(config.grab_outline_color, config.grab_outline_opacity));
+  st.setProperty('--grab-outline-width', `${config.grab_outline_enabled ? config.grab_outline_width : 0}px`);
 }
 
 function hexTint(hex) {
