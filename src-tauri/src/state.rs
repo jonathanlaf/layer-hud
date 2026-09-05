@@ -14,6 +14,8 @@ pub struct HudState {
     /// connectivity) doesn't need to read and fully deserialize config.json
     /// from disk on every tick just to check a value that rarely changes.
     pub grab_combo: Mutex<Vec<String>>,
+    /// Current Keymapp connectivity, shared with the watcher and frontend.
+    pub keymapp_online: AtomicBool,
 }
 
 impl HudState {
@@ -22,6 +24,7 @@ impl HudState {
             pinned: AtomicBool::new(false),
             config_lock: Mutex::new(()),
             grab_combo: Mutex::new(Vec::new()),
+            keymapp_online: AtomicBool::new(true),
         }
     }
 }

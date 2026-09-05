@@ -90,7 +90,8 @@ fn main() {
             oryx::load_layout,
             oryx::get_config,
             oryx::set_config,
-            oryx::clear_window_position
+            oryx::clear_window_position,
+            oryx::is_keymapp_online
         ])
         .run(tauri::generate_context!())
         .expect("error while running layer-hud");

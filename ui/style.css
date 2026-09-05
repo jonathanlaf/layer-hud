@@ -33,8 +33,13 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
                  justify-content: center; text-align: center; padding: 12px;
                  font-size: 13px; opacity: 0.9; }
 body[data-base="0"] #board { outline: var(--base-outline-width, 2px) solid var(--base-outline, rgba(120,180,255,0.6)); outline-offset: -2px; }
-body.offline #board { opacity: 0.4; }
-body.offline #badge::after { content: " — Keymapp offline"; color: #ff9c9c; }
+/* Dim keys while keeping the badge/offline indicator fully visible. */
+body.offline .layer { opacity: 0.4; }
+body.offline #badge::after {
+  content: "OFFLINE"; margin-left: 6px; padding: 1px 5px; border-radius: 4px;
+  font-weight: 700; letter-spacing: 0.03em;
+  color: #fff; background: #d92c2c;
+}
 body.grab #board { outline: var(--grab-outline-width, 2px) solid var(--grab-outline, rgba(255,220,120,0.9)); outline-offset: -2px; }
 /* Inset 6px from the true corner and given their own small radius so the
    L-bracket sits past #board's 12px curve instead of colliding with it —

@@ -188,6 +188,17 @@ async function main() {
     renderBoard(await invoke('load_layout'), await invoke('get_config'));
     setActiveLayer(lastLayer);
   });
+
+  // Sync ground truth once at startup (see HudState::keymapp_online's doc
+  // comment for why the event listeners above aren't enough on their own).
+  // Caught separately from the try/catch below so a rejection here can't
+  // skip registering the mousedown/resize-handle listeners that follow.
+  try {
+    setOffline(!(await invoke('is_keymapp_online')));
+  } catch (err) {
+    console.error('layer-hud: failed to read keymapp status:', err);
+  }
+
   document.getElementById('board').addEventListener('mousedown', (e) => {
     if (document.body.classList.contains('grab')) {
       window.__TAURI__.window.getCurrentWindow().startDragging();

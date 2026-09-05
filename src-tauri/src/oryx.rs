@@ -277,6 +277,15 @@ pub fn clear_window_position(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Exposes HudState::keymapp_online (see its doc comment for why the
+/// overlay needs to pull this instead of relying solely on events).
+#[tauri::command]
+pub fn is_keymapp_online(app: AppHandle) -> bool {
+    app.state::<crate::state::HudState>()
+        .keymapp_online
+        .load(std::sync::atomic::Ordering::SeqCst)
+}
+
 fn chrono_free_now() -> String {
     // ISO-ish timestamp without a chrono dependency
     let now = std::time::SystemTime::now()

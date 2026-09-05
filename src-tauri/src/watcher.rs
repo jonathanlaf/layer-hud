@@ -1,7 +1,7 @@
 use kontroll::Kontroll;
 use serde_json::{json, Value};
 use std::time::Duration;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 pub fn extract_layer(status: &Value) -> Option<i64> {
     status.pointer("/keyboard/current_layer").and_then(Value::as_i64)
@@ -79,6 +79,9 @@ pub fn spawn(app: AppHandle) {
                     Some(layer) => {
                         if !online {
                             online = true;
+                            app.state::<crate::state::HudState>()
+                                .keymapp_online
+                                .store(true, std::sync::atomic::Ordering::SeqCst);
                             if let Err(e) = app.emit("keymapp-online", json!({})) {
                                 eprintln!("Failed to emit keymapp-online event: {}", e);
                             }
@@ -113,6 +116,9 @@ fn log_once(last_error: &mut Option<String>, msg: String) {
 async fn sleep_offline(app: &AppHandle, online: &mut bool, backoff: &mut Duration) {
     if *online {
         *online = false;
+        app.state::<crate::state::HudState>()
+            .keymapp_online
+            .store(false, std::sync::atomic::Ordering::SeqCst);
         if let Err(e) = app.emit("keymapp-offline", json!({})) {
             eprintln!("Failed to emit keymapp-offline event: {}", e);
         }
