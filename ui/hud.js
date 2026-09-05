@@ -1,6 +1,5 @@
 import { keyRects, BOARD_UNITS } from './geometry.mjs';
 import { translateSlot, shiftLabel } from './translator.mjs';
-import { LAYER_ACTIONS } from './layer-actions.mjs';
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -20,19 +19,6 @@ let lastLayer = 0;
 // re-render at the new scale without re-invoking the backend.
 let lastLayout = null;
 let lastConfig = null;
-
-function decorateAction(element, slotName, slot, secondary = false) {
-  const isLayer = slot?.layer !== null && slot?.layer !== undefined;
-  if (!isLayer && (!secondary || !element.textContent)) return;
-  const action = LAYER_ACTIONS[slotName];
-  const kind = isLayer ? 'layer' : 'alternate';
-  element.classList.add(`${kind}-action`);
-  element.title = `${action.label}: ${isLayer ? `layer ${slot.layer}` : element.textContent}`;
-  const icon = document.createElement('span');
-  icon.className = `${kind}-action-icon ${action.icon}`;
-  icon.setAttribute('aria-hidden', 'true');
-  element.prepend(icon);
-}
 
 function computeLayout(config) {
   const pad = config.padding ?? 10;
@@ -80,18 +66,12 @@ export function renderBoard(layoutJson, config) {
         holdPromoted = true;
       }
       tap.textContent = tapText;
-      decorateAction(tap, holdPromoted ? 'hold' : 'tap', holdPromoted ? key.hold : key.tap);
       k.appendChild(tap);
       const shifted = shiftLabel(key.tap ? { ...key.tap, customLabel: custom } : key.tap);
       if (shifted) {
         const s = document.createElement('span');
         s.className = 'shift';
         s.textContent = shifted;
-        s.title = `Shift: ${shifted}`;
-        const icon = document.createElement('span');
-        icon.className = 'shift-icon';
-        icon.setAttribute('aria-hidden', 'true');
-        s.prepend(icon);
         k.appendChild(s);
       }
       for (const [slot, cls] of [['hold', 'hold'], ['doubleTap', 'dtap'], ['tapHold', 'thold']]) {
@@ -104,7 +84,6 @@ export function renderBoard(layoutJson, config) {
           const s = document.createElement('span');
           s.className = cls;
           s.textContent = translateSlot(key[slot]);
-          decorateAction(s, slot, key[slot], true);
           k.appendChild(s);
           if (key[slot].layer !== null && key[slot].layer !== undefined)
             k.dataset.triggersLayer = key[slot].layer;
@@ -122,18 +101,11 @@ function hexToRgba(hex, alpha) {
 }
 
 function applyTheme(config) {
-  document.body.classList.toggle('show-layer-action-icons', config.show_layer_action_icons ?? true);
-  document.body.classList.toggle('show-shift-icons', config.show_shift_icons ?? true);
-  document.body.classList.toggle('show-alternate-action-icons', config.show_alternate_action_icons ?? true);
   const st = document.documentElement.style;
   st.setProperty('--board-bg', hexToRgba(config.bg_color, config.opacity));
   st.setProperty('--char-opacity', config.char_opacity);
   st.setProperty('--text-color', config.text_color);
   st.setProperty('--legend-color', config.legend_color);
-  st.setProperty('--shift-color', config.shift_color ?? '#ffffff');
-  st.setProperty('--alternate-color', config.alternate_color ?? '#ffffff');
-  st.setProperty('--shift-icon-scale', config.shift_icon_scale ?? 1);
-  st.setProperty('--alternate-action-icon-scale', config.alternate_action_icon_scale ?? 1);
   st.setProperty('--border-color', hexToRgba(config.border_color, config.border_opacity));
   st.setProperty('--border-width', `${config.border_width}px`);
   st.setProperty('--key-fill', hexToRgba(config.key_fill_color, config.key_fill_opacity));

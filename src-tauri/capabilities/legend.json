@@ -1,7 +1,0 @@
-{
-  "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "legend",
-  "description": "Core events for the icon legend and layer reference window",
-  "windows": ["legend"],
-  "permissions": ["core:default"]
-}

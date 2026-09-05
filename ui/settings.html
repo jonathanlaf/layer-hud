@@ -53,28 +53,12 @@
   #combo-display { font-size: 17px; min-width: 56px; }
   .hint { font-size: 11px; opacity: 0.55; }
   .colors-grid {
-    display: flex; flex-direction: column; gap: 0;
-    padding: 4px 12px; text-align: left; font-size: 12px;
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+    padding: 10px 0; text-align: center; font-size: 11px;
   }
-  .color-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
-  .color-row + .color-row { border-top: 1px solid light-dark(rgba(0,0,0,0.06), rgba(255,255,255,0.06)); }
-  .color-row label { display: flex; flex-direction: column; gap: 2px; }
-  .color-row small { font-size: 11px; opacity: 0.58; }
-  .colors-grid input[type=color] { border: 1px solid light-dark(#b8b8c0, #777780); }
-  .tabs { display: flex; gap: 5px; overflow-x: auto; padding: 0 0 4px; margin-bottom: 2px; }
-  .tab-button { flex: 0 0 auto; border: 1px solid transparent; padding: 6px 10px;
-    border-radius: 7px; background: transparent; color: inherit; opacity: 0.62; }
-  .tab-button.active { background: light-dark(#fff, #3a3a42);
-    border-color: light-dark(#d1d1d6, #555560); opacity: 1; }
+  .colors-grid label { display: block; margin-top: 4px; opacity: 0.75; }
 </style></head>
 <body>
-  <nav class="tabs" aria-label="Settings sections">
-    <button class="tab-button active" type="button" data-tab="layout">Layout</button>
-    <button class="tab-button" type="button" data-tab="appearance">Appearance</button>
-    <button class="tab-button" type="button" data-tab="colors">Colors</button>
-    <button class="tab-button" type="button" data-tab="interaction">Interaction</button>
-    <button class="tab-button" type="button" data-tab="position">Position</button>
-  </nav>
   <h2>Layout</h2>
   <div class="card">
     <div class="row">
@@ -96,34 +80,6 @@
 
   <h2>Appearance</h2>
   <div class="card">
-    <div class="row">
-      <label for="layer-action-icons">Show layer action icons</label>
-      <input type="checkbox" id="layer-action-icons" />
-    </div>
-    <div class="row">
-      <span class="hint">Tap, hold, double-tap, and tap-then-hold shortcuts from your layout.</span>
-    </div>
-    <div class="row">
-      <label for="shift-icons">Show Shift icons</label>
-      <input type="checkbox" id="shift-icons" />
-    </div>
-    <div class="row">
-      <label for="shift-icon-scale">Shift icon size (50–250%)</label>
-      <input type="range" id="shift-icon-scale" min="0.5" max="2.5" step="0.1" />
-      <input class="val" id="shift-icon-scale-val" inputmode="decimal" aria-label="Shift icon size percentage" />
-    </div>
-    <div class="row">
-      <label for="alternate-action-icons">Show alternate action icons</label>
-      <input type="checkbox" id="alternate-action-icons" />
-    </div>
-    <div class="row">
-      <label for="alternate-action-icon-scale">Alternate icon size (50–250%)</label>
-      <input type="range" id="alternate-action-icon-scale" min="0.5" max="2.5" step="0.1" />
-      <input class="val" id="alternate-action-icon-scale-val" inputmode="decimal" aria-label="Alternate action icon size percentage" />
-    </div>
-    <div class="row">
-      <span class="hint">Icons for characters and actions reached by double-tap, hold, or tap-and-hold.</span>
-    </div>
     <div class="row">
       <label>Background opacity</label>
       <input type="range" id="opacity" min="0" max="1" step="0.05" />
@@ -154,17 +110,13 @@
       <input type="range" id="padding" min="0" max="60" step="2" />
       <input class="val" id="padding-val" inputmode="decimal" aria-label="Padding value" />
     </div>
-  </div>
-
-  <h2>Colors</h2>
-  <div class="card colors-grid">
-    <div class="color-row"><input type="color" id="bg-color" /><label for="bg-color">Background<small>Overlay surface</small></label></div>
-    <div class="color-row"><input type="color" id="key-fill-color" /><label for="key-fill-color">Key fill<small>Inside each key</small></label></div>
-    <div class="color-row"><input type="color" id="text-color" /><label for="text-color">Text<small>Main key characters</small></label></div>
-    <div class="color-row"><input type="color" id="legend-color" aria-label="Layer trigger color" /><label for="legend-color">Layer triggers<small>Tap, hold, and layer actions</small></label></div>
-    <div class="color-row"><input type="color" id="shift-color" aria-label="Shift character color" /><label for="shift-color">Shift characters<small>Alternate characters from Shift</small></label></div>
-    <div class="color-row"><input type="color" id="alternate-color" aria-label="Alternate character color" /><label for="alternate-color">Alternate characters<small>Double-tap, hold, or tap-and-hold results</small></label></div>
-    <div class="color-row"><input type="color" id="border-color" /><label for="border-color">Border<small>Key outlines</small></label></div>
+    <div class="colors-grid">
+      <div><input type="color" id="bg-color" /><label>Background</label></div>
+      <div><input type="color" id="key-fill-color" /><label>Key fill</label></div>
+      <div><input type="color" id="text-color" /><label>Text</label></div>
+      <div><input type="color" id="legend-color" /><label>Legend</label></div>
+      <div><input type="color" id="border-color" /><label>Border</label></div>
+    </div>
   </div>
 
   <h2>Interaction</h2>

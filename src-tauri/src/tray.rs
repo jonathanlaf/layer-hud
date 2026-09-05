@@ -6,22 +6,19 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
     let refresh = MenuItem::with_id(app, "refresh", "Refresh layout", true, None::<&str>)?;
     let pin = CheckMenuItem::with_id(app, "pin", "Pin overlay (interactive)", true, false, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
-    let legend = MenuItem::with_id(app, "legend", "Icon legend & layers…", true, None::<&str>)?;
     #[cfg(debug_assertions)]
     let devtools = MenuItem::with_id(app, "devtools", "Open DevTools", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     // The overlay's own right/ctrl-click context menu is disabled (see
     // hud.js) since a click during grab mode can hold ctrl; DevTools access
     // moves here instead, and only exists at all in debug builds.
-    let mut items: Vec<&dyn IsMenuItem<tauri::Wry>> = vec![&refresh, &pin, &settings, &legend];
+    let mut items: Vec<&dyn IsMenuItem<tauri::Wry>> = vec![&refresh, &pin, &settings];
     #[cfg(debug_assertions)]
     items.push(&devtools);
     items.push(&quit);
     let menu = Menu::with_items(app, &items)?;
     let pin_handle = pin.clone();
 
-    // Rasterized from icons/voyager.svg. Keep the transparent monochrome image
-    // as a template so macOS supplies contrasting light/dark menu-bar colors.
     let tray_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?;
     TrayIconBuilder::with_id("main")
         .icon(tray_icon)
@@ -57,28 +54,9 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                 // the loop's cache would then suppress the correction).
                 state.pinned.store(pinned, std::sync::atomic::Ordering::SeqCst);
             }
-            "legend" => {
-                if let Some(w) = app.get_webview_window("legend") {
-                    let _ = w.unminimize();
-                    let _ = w.show();
-                    let _ = w.set_focus();
-                } else if let Err(e) = tauri::WebviewWindowBuilder::new(
-                    app,
-                    "legend",
-                    tauri::WebviewUrl::App("legend.html".into()),
-                )
-                .title("Layer HUD — Icon legend & layers")
-                .inner_size(620.0, 640.0)
-                .min_inner_size(420.0, 320.0)
-                .build() {
-                    eprintln!("Failed to open icon legend: {e}");
-                }
-            }
             "settings" => {
                 if let Some(w) = app.get_webview_window("settings") {
                     let _ = w.unminimize();
-                    let _ = w.set_always_on_top(true);
-                    let _ = w.set_size(tauri::LogicalSize::new(640.0, 720.0));
                     let _ = w.show();
                     let _ = w.set_focus();
                 } else {
@@ -88,9 +66,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                         tauri::WebviewUrl::App("settings.html".into()),
                     )
                     .title("Layer HUD Settings")
-                    .inner_size(640.0, 720.0)
-                    .min_inner_size(520.0, 520.0)
-                    .always_on_top(true)
+                    .inner_size(420.0, 600.0)
                     .build();
                 }
             }

@@ -19,19 +19,12 @@ pub struct Config {
     pub border_width: f64,
     pub grab_combo: Vec<String>,
     pub use_oryx_colors: bool,
-    pub show_layer_action_icons: bool,
-    pub show_shift_icons: bool,
-    pub shift_icon_scale: f64,
-    pub show_alternate_action_icons: bool,
-    pub alternate_action_icon_scale: f64,
     pub key_fill_color: String,
     pub key_fill_opacity: f64,
     pub padding: f64,
     pub bg_color: String,
     pub text_color: String,
     pub legend_color: String,
-    pub shift_color: String,
-    pub alternate_color: String,
     pub border_color: String,
     pub window: Option<WindowRect>,
     pub last_refresh: Option<String>,
@@ -47,19 +40,12 @@ impl Default for Config {
             border_width: 1.0,
             grab_combo: vec!["cmd".into(), "alt".into()],
             use_oryx_colors: true,
-            show_layer_action_icons: true,
-            show_shift_icons: true,
-            shift_icon_scale: 1.0,
-            show_alternate_action_icons: true,
-            alternate_action_icon_scale: 1.0,
             key_fill_color: "#ffffff".into(),
             key_fill_opacity: 0.0,
             padding: 10.0,
             bg_color: "#141418".into(),
             text_color: "#ffffff".into(),
             legend_color: "#ffffff".into(),
-            shift_color: "#ffffff".into(),
-            alternate_color: "#ffffff".into(),
             border_color: "#ffffff".into(),
             window: None,
             last_refresh: None,
@@ -79,8 +65,6 @@ impl Config {
         self.border_width = self.border_width.clamp(0.0, 5.0);
         self.key_fill_opacity = self.key_fill_opacity.clamp(0.0, 1.0);
         self.padding = self.padding.clamp(0.0, 60.0);
-        self.shift_icon_scale = self.shift_icon_scale.clamp(0.5, 2.5);
-        self.alternate_action_icon_scale = self.alternate_action_icon_scale.clamp(0.5, 2.5);
     }
 }
 
@@ -137,8 +121,6 @@ mod tests {
         assert_eq!(c.text_color, "#ffffff");
         assert_eq!(c.legend_color, "#ffffff");
         assert_eq!(c.border_color, "#ffffff");
-        assert_eq!(c.shift_icon_scale, 1.0);
-        assert_eq!(c.alternate_action_icon_scale, 1.0);
     }
 
     #[test]
@@ -165,8 +147,6 @@ mod tests {
             border_width: 999.0,
             key_fill_opacity: 2.0,
             padding: -10.0,
-            shift_icon_scale: 3.0,
-            alternate_action_icon_scale: 0.1,
             ..Config::default()
         };
         c.clamp();
@@ -176,8 +156,6 @@ mod tests {
         assert_eq!(c.border_width, 5.0);
         assert_eq!(c.key_fill_opacity, 1.0);
         assert_eq!(c.padding, 0.0);
-        assert_eq!(c.shift_icon_scale, 2.5);
-        assert_eq!(c.alternate_action_icon_scale, 0.5);
     }
 
     #[test]
@@ -198,12 +176,6 @@ mod tests {
         let path = dir.join("config.json");
         let mut c = Config::default();
         c.opacity = 0.5;
-        c.legend_color = "#ffcc00".into();
-        c.shift_color = "#00ccff".into();
-        c.alternate_color = "#ff88cc".into();
-        c.show_layer_action_icons = true;
-        c.show_shift_icons = false;
-        c.show_alternate_action_icons = false;
         c.window = Some(WindowRect { x: 10.0, y: 20.0, w: 800.0, h: 300.0 });
         save(&path, &c).unwrap();
         assert_eq!(load(&path), c);
