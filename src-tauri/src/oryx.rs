@@ -135,14 +135,11 @@ where
 /// over so existing settings aren't silently reset to defaults on upgrade.
 pub fn migrate_legacy_identifier(app: &AppHandle) -> Result<(), String> {
     let new_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-    if new_dir.join("config.json").exists() {
-        return Ok(());
-    }
     let Some(home) = std::env::var_os("HOME") else {
         return Ok(());
     };
     let old_dir = PathBuf::from(home).join("Library/Application Support/io.jonathanlaf.voyagerhud");
-    if !old_dir.join("config.json").exists() {
+    if !old_dir.exists() {
         return Ok(());
     }
     std::fs::create_dir_all(&new_dir).map_err(|e| e.to_string())?;
@@ -151,9 +148,11 @@ pub fn migrate_legacy_identifier(app: &AppHandle) -> Result<(), String> {
     // every other writer gets — this runs before grab::spawn/tray::build
     // start so nothing else touches config.json yet, but there's no reason
     // for this to be the one path that doesn't go through the shared helpers.
-    let legacy_cfg = crate::config::load(&old_dir.join("config.json"));
-    crate::config::save(&new_dir.join("config.json"), &legacy_cfg).map_err(|e| e.to_string())?;
-    if old_dir.join("layout.json").exists() {
+    if !new_dir.join("config.json").exists() && old_dir.join("config.json").exists() {
+        let legacy_cfg = crate::config::load(&old_dir.join("config.json"));
+        crate::config::save(&new_dir.join("config.json"), &legacy_cfg).map_err(|e| e.to_string())?;
+    }
+    if !new_dir.join("layout.json").exists() && old_dir.join("layout.json").exists() {
         let _ = std::fs::copy(old_dir.join("layout.json"), new_dir.join("layout.json"));
     }
     Ok(())
