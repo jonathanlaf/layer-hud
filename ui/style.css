@@ -7,18 +7,28 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
 .key { position: absolute; border: var(--border-width, 1px) solid var(--border-color, rgba(255,255,255,0.35)); border-radius: 7px;
        box-sizing: border-box; text-align: center; background: var(--key-fill, transparent); }
 .key .tap { position: absolute; inset: 0; display: flex; align-items: center;
-            justify-content: center; font-size: calc(var(--key-unit, 62px) * 0.258);
+            justify-content: center; font-size: calc(var(--key-unit, 62px) * 0.258 * var(--key-font-scale, 1));
+            font-family: var(--key-font-family, -apple-system), sans-serif;
+            font-weight: var(--key-font-weight, 400); font-style: var(--key-font-style, normal);
+            font-variant-ligatures: var(--key-font-ligatures, normal);
             color: var(--text-color, #fff); opacity: var(--char-opacity, 1); }
 .key .hold { position: absolute; bottom: 2px; left: 0; right: 0;
-             font-size: calc(var(--key-unit, 62px) * 0.145); opacity: calc(0.75 * var(--char-opacity, 1)); color: var(--legend-color, #fff); }
+             font-size: calc(var(--key-unit, 62px) * 0.145 * var(--legend-font-scale, 1)); opacity: calc(0.75 * var(--char-opacity, 1)); color: var(--legend-color, #fff);
+             font-family: var(--legend-font-family, -apple-system), sans-serif; font-weight: var(--legend-font-weight, 400); font-style: var(--legend-font-style, normal); font-variant-ligatures: var(--legend-font-ligatures, normal); }
 .key .dtap { position: absolute; top: 1px; right: 4px;
-             font-size: calc(var(--key-unit, 62px) * 0.145); opacity: calc(0.75 * var(--char-opacity, 1)); color: var(--legend-color, #fff); }
+             font-size: calc(var(--key-unit, 62px) * 0.145 * var(--legend-font-scale, 1)); opacity: calc(0.75 * var(--char-opacity, 1)); color: var(--legend-color, #fff);
+             font-family: var(--legend-font-family, -apple-system), sans-serif; font-weight: var(--legend-font-weight, 400); font-style: var(--legend-font-style, normal); font-variant-ligatures: var(--legend-font-ligatures, normal); }
 .key .thold { position: absolute; top: 1px; left: 4px;
-              font-size: calc(var(--key-unit, 62px) * 0.145); opacity: calc(0.75 * var(--char-opacity, 1)); color: var(--legend-color, #fff); }
+              font-size: calc(var(--key-unit, 62px) * 0.145 * var(--legend-font-scale, 1)); opacity: calc(0.75 * var(--char-opacity, 1)); color: var(--legend-color, #fff);
+              font-family: var(--legend-font-family, -apple-system), sans-serif; font-weight: var(--legend-font-weight, 400); font-style: var(--legend-font-style, normal); font-variant-ligatures: var(--legend-font-ligatures, normal); }
 .key .shift { position: absolute; top: 1px; left: 0; right: 0; text-align: center;
-              font-size: calc(var(--key-unit, 62px) * 0.145); opacity: calc(0.75 * var(--char-opacity, 1)); color: var(--legend-color, #fff); }
+              font-size: calc(var(--key-unit, 62px) * 0.145 * var(--legend-font-scale, 1)); opacity: calc(0.75 * var(--char-opacity, 1)); color: var(--legend-color, #fff);
+              font-family: var(--legend-font-family, -apple-system), sans-serif; font-weight: var(--legend-font-weight, 400); font-style: var(--legend-font-style, normal); font-variant-ligatures: var(--legend-font-ligatures, normal); }
 .key.trigger-active { border-color: #ffd479; box-shadow: 0 0 6px #ffd479; }
-#badge { position: absolute; top: 4px; right: 10px; font-size: 11px; opacity: 0.8; }
+#badge { position: absolute; top: 4px; right: 10px; font-size: var(--layer-name-font-size, 11px); opacity: 0.8;
+         font-family: var(--layer-name-font-family, -apple-system), sans-serif;
+         font-weight: var(--layer-name-font-weight, 400); font-style: var(--layer-name-font-style, normal);
+         font-variant-ligatures: var(--layer-name-font-ligatures, normal); }
 #startup-error { position: absolute; inset: 0; display: flex; align-items: center;
                  justify-content: center; text-align: center; padding: 12px;
                  font-size: 13px; opacity: 0.9; }

@@ -37,6 +37,9 @@
     border: 1px solid light-dark(rgba(0,0,0,0.15), rgba(255,255,255,0.15));
     background: light-dark(#fff, #1e1e22); color: inherit; font: inherit;
   }
+  select { flex: 1; min-width: 0; padding: 5px 8px; border-radius: 6px;
+    border: 1px solid light-dark(rgba(0,0,0,0.15), rgba(255,255,255,0.15));
+    background: light-dark(#fff, #1e1e22); color: inherit; font: inherit; }
   input[type=color] {
     width: 34px; height: 24px; padding: 0; border: none; border-radius: 6px;
     background: none; cursor: pointer;
@@ -156,6 +159,19 @@
       <input type="range" id="grab-outline-width" min="0" max="5" step="0.5" />
       <input class="val" id="grab-outline-width-val" inputmode="decimal" aria-label="Grab outline thickness value" />
     </div>
+  </div>
+
+  <h2>Fonts</h2>
+  <div class="card">
+    <div class="row"><label for="key-font-family">Key font</label><select id="key-font-family"><option value="">System default</option></select></div>
+    <div class="row"><label for="key-font-size">Key size</label><input type="range" id="key-font-size" min="0.5" max="2" step="0.1" /><input class="val" id="key-font-size-val" inputmode="decimal" /></div>
+    <div class="row"><label for="key-font-bold">Bold</label><input type="checkbox" id="key-font-bold" /><label for="key-font-italic">Italic</label><input type="checkbox" id="key-font-italic" /><label for="key-font-ligatures">Ligatures</label><input type="checkbox" id="key-font-ligatures" /></div>
+    <div class="row"><label for="legend-font-family">Legend font</label><select id="legend-font-family"><option value="">System default</option></select></div>
+    <div class="row"><label for="legend-font-size">Legend size</label><input type="range" id="legend-font-size" min="0.5" max="2" step="0.1" /><input class="val" id="legend-font-size-val" inputmode="decimal" /></div>
+    <div class="row"><label for="legend-font-bold">Bold</label><input type="checkbox" id="legend-font-bold" /><label for="legend-font-italic">Italic</label><input type="checkbox" id="legend-font-italic" /><label for="legend-font-ligatures">Ligatures</label><input type="checkbox" id="legend-font-ligatures" /></div>
+    <div class="row"><label for="layer-name-font-family">Layer name font</label><select id="layer-name-font-family"><option value="">System default</option></select></div>
+    <div class="row"><label for="layer-name-font-size">Layer name size</label><input type="range" id="layer-name-font-size" min="8" max="24" step="1" /><input class="val" id="layer-name-font-size-val" inputmode="decimal" /></div>
+    <div class="row"><label for="layer-name-font-bold">Bold</label><input type="checkbox" id="layer-name-font-bold" /><label for="layer-name-font-italic">Italic</label><input type="checkbox" id="layer-name-font-italic" /><label for="layer-name-font-ligatures">Ligatures</label><input type="checkbox" id="layer-name-font-ligatures" /></div>
   </div>
 
   <h2>Interaction</h2>

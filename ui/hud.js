@@ -100,6 +100,15 @@ function hexToRgba(hex, alpha) {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
 }
 
+function fontVars(style, prefix, config) {
+  const family = config[`${prefix}_font_family`];
+  const cssPrefix = prefix.replace(/_/g, '-');
+  style.setProperty(`--${cssPrefix}-font-family`, family ? JSON.stringify(family) : '-apple-system');
+  style.setProperty(`--${cssPrefix}-font-weight`, config[`${prefix}_font_bold`] ? '700' : '400');
+  style.setProperty(`--${cssPrefix}-font-style`, config[`${prefix}_font_italic`] ? 'italic' : 'normal');
+  style.setProperty(`--${cssPrefix}-font-ligatures`, config[`${prefix}_font_ligatures`] ? 'common-ligatures' : 'none');
+}
+
 function applyTheme(config) {
   const st = document.documentElement.style;
   st.setProperty('--board-bg', hexToRgba(config.bg_color, config.opacity));
@@ -113,6 +122,12 @@ function applyTheme(config) {
   st.setProperty('--base-outline-width', `${config.base_outline_enabled ? config.base_outline_width : 0}px`);
   st.setProperty('--grab-outline', hexToRgba(config.grab_outline_color, config.grab_outline_opacity));
   st.setProperty('--grab-outline-width', `${config.grab_outline_enabled ? config.grab_outline_width : 0}px`);
+  st.setProperty('--key-font-scale', config.key_font_size);
+  st.setProperty('--legend-font-scale', config.legend_font_size);
+  st.setProperty('--layer-name-font-size', `${config.layer_name_font_size}px`);
+  fontVars(st, 'key', config);
+  fontVars(st, 'legend', config);
+  fontVars(st, 'layer_name', config);
 }
 
 function hexTint(hex) {
