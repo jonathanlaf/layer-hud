@@ -137,6 +137,29 @@ bindCheckbox('colors-toggle', 'use_oryx_colors');
 bindCheckbox('base-outline-enabled', 'base_outline_enabled');
 bindCheckbox('grab-outline-enabled', 'grab_outline_enabled');
 
+// The base/grab outlines are only ever visible when you're actually on the
+// base layer or actively grabbing — which makes them hard to tune from here.
+// Touching any of their controls tells the overlay to show that outline
+// briefly regardless of current state (hud.js owns the timing).
+const previewOutlineOnChange = (id, which) => {
+  const el = $(id);
+  const fire = () => window.__TAURI__.event.emit('outline-preview', { which });
+  el.addEventListener('input', fire);
+  el.addEventListener('change', fire);
+};
+for (const id of [
+  'base-outline-color', 'base-outline-opacity', 'base-outline-opacity-val',
+  'base-outline-width', 'base-outline-width-val', 'base-outline-enabled',
+]) {
+  previewOutlineOnChange(id, 'base');
+}
+for (const id of [
+  'grab-outline-color', 'grab-outline-opacity', 'grab-outline-opacity-val',
+  'grab-outline-width', 'grab-outline-width-val', 'grab-outline-enabled',
+]) {
+  previewOutlineOnChange(id, 'grab');
+}
+
 try {
   $('autostart').checked = await invoke('plugin:autostart|is_enabled');
 } catch { $('autostart').disabled = true; }

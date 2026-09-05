@@ -22,10 +22,10 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
 #startup-error { position: absolute; inset: 0; display: flex; align-items: center;
                  justify-content: center; text-align: center; padding: 12px;
                  font-size: 13px; opacity: 0.9; }
-body[data-base="0"] #board { outline: var(--base-outline-width, 2px) solid var(--base-outline, rgba(120,180,255,0.6)); outline-offset: -2px; }
+body[data-base="0"] #board, body.preview-base-outline #board { outline: var(--base-outline-width, 2px) solid var(--base-outline, rgba(120,180,255,0.6)); outline-offset: calc(var(--base-outline-width, 2px) * -1); }
 body.offline #board { opacity: 0.4; }
 body.offline #badge::after { content: " — Keymapp offline"; color: #ff9c9c; }
-body.grab #board { outline: var(--grab-outline-width, 2px) solid var(--grab-outline, rgba(255,220,120,0.9)); outline-offset: -2px; }
+body.grab #board, body.preview-grab-outline #board { outline: var(--grab-outline-width, 2px) solid var(--grab-outline, rgba(255,220,120,0.9)); outline-offset: calc(var(--grab-outline-width, 2px) * -1); }
 /* Inset 6px from the true corner and given their own small radius so the
    L-bracket sits past #board's 12px curve instead of colliding with it —
    at the literal corner (the old 0,0 position) the bracket's sharp 90°

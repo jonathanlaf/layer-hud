@@ -33,6 +33,7 @@ Launch it from Applications or Finder.
 
 - **Tray Menu:** Click the Layer HUD icon in the macOS menu bar for Refresh layout, Pin overlay, Settings…, and Quit
 - **Move Overlay:** Hold ⌘⌥ (Command+Option) and drag the overlay to reposition it
+- **Pin Overlay:** The tray's "Pin overlay (interactive)" checkbox makes the overlay clickable/draggable at all times, without needing to hold the grab hotkey — useful while you're actively repositioning it or want it to stay grabbable. Leave it unchecked (the default) for normal click-through use.
 - **Settings:** Use the tray menu's "Settings…" item to access settings (Oryx layout URL, opacity, grab combo, color scheme); the overlay itself is click-through and doesn't respond to clicks
 - **Layer Colors:** Layer background colors are mirrored from your Oryx layout if "Use Oryx Colors" is enabled in settings
 

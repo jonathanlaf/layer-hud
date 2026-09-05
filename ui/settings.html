@@ -60,6 +60,14 @@
   .inline-controls { display: flex; align-items: center; gap: 8px; }
 </style></head>
 <body>
+  <h2>General</h2>
+  <div class="card">
+    <div class="row">
+      <label for="autostart">Start at login</label>
+      <input type="checkbox" id="autostart" />
+    </div>
+  </div>
+
   <h2>Layout</h2>
   <div class="card">
     <div class="row">
@@ -72,10 +80,6 @@
     <div class="row">
       <label for="colors-toggle">Use Oryx layer colors</label>
       <input type="checkbox" id="colors-toggle" />
-    </div>
-    <div class="row">
-      <label for="autostart">Start at login</label>
-      <input type="checkbox" id="autostart" />
     </div>
   </div>
 
@@ -123,11 +127,14 @@
   <h2>Outlines</h2>
   <div class="card">
     <div class="row">
-      <label for="base-outline-enabled">Base-layer outline</label>
+      <label for="base-outline-enabled">Away-from-base outline</label>
       <div class="inline-controls">
         <input type="color" id="base-outline-color" />
         <input type="checkbox" id="base-outline-enabled" />
       </div>
+    </div>
+    <div class="row">
+      <span class="hint">Shown around the overlay whenever you're off your base (layer 0) layer, to draw your eye back to it — adjusting these previews it briefly even while you're on the base layer</span>
     </div>
     <div class="row">
       <label>Opacity</label>
@@ -145,6 +152,9 @@
         <input type="color" id="grab-outline-color" />
         <input type="checkbox" id="grab-outline-enabled" />
       </div>
+    </div>
+    <div class="row">
+      <span class="hint">Shown while holding the grab hotkey to move/resize the overlay — adjusting these previews it briefly</span>
     </div>
     <div class="row">
       <label>Opacity</label>

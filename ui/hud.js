@@ -155,6 +155,18 @@ async function main() {
   await listen('keymapp-offline', () => setOffline(true));
   await listen('keymapp-online', () => setOffline(false));
   await listen('grab-mode', (e) => document.body.classList.toggle('grab', e.payload.on));
+  // The base/grab outlines are only visible in their own state (base layer /
+  // actively grabbing); Settings asks for a brief preview whenever their
+  // controls change so they're visible while being tuned regardless of
+  // current state. Re-triggering resets the timer instead of stacking.
+  const previewTimers = {};
+  await listen('outline-preview', (e) => {
+    const which = e.payload.which;
+    const cls = `preview-${which}-outline`;
+    document.body.classList.add(cls);
+    clearTimeout(previewTimers[which]);
+    previewTimers[which] = setTimeout(() => document.body.classList.remove(cls), 2500);
+  });
   await listen('config-changed', async (e) => {
     applyTheme(e.payload);
     // Only a use_oryx_colors flip changes the DOM (glowColor tints are baked
