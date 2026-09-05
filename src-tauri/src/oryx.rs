@@ -47,6 +47,10 @@ fn cache_path(app: &AppHandle) -> Result<PathBuf, String> {
         .map_err(|e| e.to_string())
 }
 
+fn legacy_cache_path() -> Option<PathBuf> {
+    std::env::var_os("HOME").map(|home| PathBuf::from(home).join("Library/Application Support/io.jonathanlaf.voyagerhud/layout.json"))
+}
+
 /// Stable-enough key for "which physical display is this" across launches —
 /// the monitor's name (e.g. "Built-in Retina Display") when macOS reports
 /// one, falling back to its resolution if not. Two identical external
@@ -197,7 +201,9 @@ pub async fn refresh_layout(app: AppHandle, url: String) -> Result<Value, String
             Err(e)
         }
         Err(FetchError::Transport(e)) => {
-            let cached = std::fs::read_to_string(&cache).map_err(|_| e.clone())?;
+            let cached = std::fs::read_to_string(&cache)
+                .or_else(|_| legacy_cache_path().ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "no legacy cache")).and_then(std::fs::read_to_string))
+                .map_err(|_| e.clone())?;
             let mut v: Value = serde_json::from_str(&cached).map_err(|_| e)?;
             if let Value::Object(ref mut obj) = v {
                 obj.insert("stale".to_string(), json!(true));
@@ -210,7 +216,10 @@ pub async fn refresh_layout(app: AppHandle, url: String) -> Result<Value, String
 #[tauri::command]
 pub async fn load_layout(app: AppHandle) -> Result<Value, String> {
     let cache = cache_path(&app)?;
-    if let Ok(s) = std::fs::read_to_string(&cache) {
+    let cached = std::fs::read_to_string(&cache).or_else(|_| {
+        legacy_cache_path().ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "no legacy cache")).and_then(std::fs::read_to_string)
+    });
+    if let Ok(s) = cached {
         if let Ok(v) = serde_json::from_str::<Value>(&s) {
             return Ok(v);
         }
@@ -295,6 +304,11 @@ pub fn import_config(app: AppHandle, contents: String) -> Result<crate::config::
 #[tauri::command]
 pub fn reset_config(app: AppHandle) -> Result<crate::config::Config, String> {
     let result = update_config(&app, |cfg| *cfg = crate::config::Config::default())?;
+    if let Some(window) = app.get_webview_window("overlay") {
+        if let Ok(Some(mon)) = window.current_monitor() {
+            apply_rect(&window, &default_rect_for_monitor(&mon));
+        }
+    }
     let _ = app.emit("config-changed", result.clone());
     Ok(result)
 }

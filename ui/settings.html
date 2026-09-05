@@ -69,17 +69,25 @@
     border-radius: 7px; background: transparent; color: inherit; opacity: 0.62; }
   .tab-button.active { background: light-dark(#fff, #3a3a42);
     border-color: light-dark(#d1d1d6, #555560); opacity: 1; }
+  .tabs + h2 { margin-top: 18px; }
+  .font-group { padding: 10px 0; }
+  .font-group + .font-group { border-top: 1px solid light-dark(rgba(0,0,0,.08), rgba(255,255,255,.08)); }
+  .font-title { font-weight: 600; margin-bottom: 6px; }
+  .font-style-buttons { display: flex; gap: 5px; }
+  .font-style-buttons button { min-width: 32px; padding: 4px 8px; font-weight: 600; }
+  .font-style-buttons button.active { background: light-dark(#dfe8ff, #405a91); border-color: #6b8de3; }
 </style></head>
 <body>
   <nav class="tabs" aria-label="Settings sections">
-    <button class="tab-button active" type="button" data-tab="layout">Layout</button>
+    <button class="tab-button active" type="button" data-tab="layout">General</button>
     <button class="tab-button" type="button" data-tab="appearance">Appearance</button>
     <button class="tab-button" type="button" data-tab="colors">Colors</button>
+    <button class="tab-button" type="button" data-tab="fonts">Fonts</button>
     <button class="tab-button" type="button" data-tab="interaction">Interaction</button>
     <button class="tab-button" type="button" data-tab="position">Position</button>
   </nav>
-  <h2>Layout</h2>
-  <div class="card">
+  <h2>General</h2>
+  <div class="card" data-tab-section="layout">
     <div class="row">
       <input type="text" id="oryx" placeholder="Oryx layout URL or hash" />
       <button id="apply-url">Fetch</button>
@@ -111,7 +119,7 @@
       <input type="checkbox" id="shift-icons" />
     </div>
     <div class="row">
-      <label for="shift-icon-scale">Shift icon size (50–250%)</label>
+      <label for="shift-icon-scale">Shift icon size</label>
       <input type="range" id="shift-icon-scale" min="0.5" max="2.5" step="0.1" />
       <input class="val" id="shift-icon-scale-val" inputmode="decimal" aria-label="Shift icon size percentage" />
     </div>
@@ -120,7 +128,7 @@
       <input type="checkbox" id="alternate-action-icons" />
     </div>
     <div class="row">
-      <label for="alternate-action-icon-scale">Alternate icon size (50–250%)</label>
+      <label for="alternate-action-icon-scale">Alternate icon size</label>
       <input type="range" id="alternate-action-icon-scale" min="0.5" max="2.5" step="0.1" />
       <input class="val" id="alternate-action-icon-scale-val" inputmode="decimal" aria-label="Alternate action icon size percentage" />
     </div>
@@ -172,15 +180,10 @@
 
   <h2>Fonts</h2>
   <div class="card">
-    <div class="row"><label for="key-font-family">Key font</label><select id="key-font-family"><option value="">System default</option></select></div>
-    <div class="row"><label for="key-font-size">Key size</label><input type="range" id="key-font-size" min="0.5" max="2" step="0.1" /><input class="val" id="key-font-size-val" inputmode="decimal" /></div>
-    <div class="row"><label for="key-font-bold">Bold</label><input type="checkbox" id="key-font-bold" /><label for="key-font-italic">Italic</label><input type="checkbox" id="key-font-italic" /><label for="key-font-ligatures">Ligatures</label><input type="checkbox" id="key-font-ligatures" /></div>
-    <div class="row"><label for="legend-font-family">Legend font</label><select id="legend-font-family"><option value="">System default</option></select></div>
-    <div class="row"><label for="legend-font-size">Legend size</label><input type="range" id="legend-font-size" min="0.5" max="2" step="0.1" /><input class="val" id="legend-font-size-val" inputmode="decimal" /></div>
-    <div class="row"><label for="legend-font-bold">Bold</label><input type="checkbox" id="legend-font-bold" /><label for="legend-font-italic">Italic</label><input type="checkbox" id="legend-font-italic" /><label for="legend-font-ligatures">Ligatures</label><input type="checkbox" id="legend-font-ligatures" /></div>
-    <div class="row"><label for="layer-name-font-family">Layer name font</label><select id="layer-name-font-family"><option value="">System default</option></select></div>
-    <div class="row"><label for="layer-name-font-size">Layer name size</label><input type="range" id="layer-name-font-size" min="8" max="24" step="1" /><input class="val" id="layer-name-font-size-val" inputmode="decimal" /></div>
-    <div class="row"><label for="layer-name-font-bold">Bold</label><input type="checkbox" id="layer-name-font-bold" /><label for="layer-name-font-italic">Italic</label><input type="checkbox" id="layer-name-font-italic" /><label for="layer-name-font-ligatures">Ligatures</label><input type="checkbox" id="layer-name-font-ligatures" /></div>
+    <div class="font-group"><div class="font-title">Key characters</div><div class="row"><label for="key-font-family">Font</label><select id="key-font-family"><option value="">System default</option></select></div><div class="row"><label for="key-font-size">Size</label><input type="range" id="key-font-size" min="0.5" max="2" step="0.1" /><input class="val" id="key-font-size-val" inputmode="decimal" /></div><div class="row"><span>Style</span><span class="font-style-buttons"><button type="button" data-font-style="key" data-style="bold"><b>B</b></button><button type="button" data-font-style="key" data-style="italic"><i>I</i></button></span></div></div>
+    <div class="font-group"><div class="font-title">Legends</div><div class="row"><label for="legend-font-family">Font</label><select id="legend-font-family"><option value="">System default</option></select></div><div class="row"><label for="legend-font-size">Size</label><input type="range" id="legend-font-size" min="0.5" max="2" step="0.1" /><input class="val" id="legend-font-size-val" inputmode="decimal" /></div><div class="row"><span>Style</span><span class="font-style-buttons"><button type="button" data-font-style="legend" data-style="bold"><b>B</b></button><button type="button" data-font-style="legend" data-style="italic"><i>I</i></button></span></div></div>
+    <div class="font-group"><div class="font-title">Layer name</div><div class="row"><label for="layer-name-font-family">Font</label><select id="layer-name-font-family"><option value="">System default</option></select></div><div class="row"><label for="layer-name-font-size">Size</label><input type="range" id="layer-name-font-size" min="8" max="24" step="1" /><input class="val" id="layer-name-font-size-val" inputmode="decimal" /></div><div class="row"><span>Style</span><span class="font-style-buttons"><button type="button" data-font-style="layer_name" data-style="bold"><b>B</b></button><button type="button" data-font-style="layer_name" data-style="italic"><i>I</i></button></span></div></div>
+    <div class="row"><label for="font-ligatures">Support programming ligatures</label><input type="checkbox" id="font-ligatures" checked /></div>
   </div>
 
   <h2>Interaction</h2>
@@ -203,11 +206,12 @@
     </div>
   </div>
 
-  <h2>Settings data</h2>
-  <div class="card">
+  <h2 data-tab-section="layout">Settings data</h2>
+  <div class="card" data-tab-section="layout">
     <div class="row"><span>Backup or restore preferences</span>
-      <span><button id="export-settings">Export</button> <button id="import-settings">Import</button> <button id="reset-settings">Reset</button></span></div>
-    <div class="row"><span class="hint" id="settings-data-status">Export copies JSON to the clipboard; Import accepts pasted JSON.</span></div>
+      <span><button id="export-settings" type="button">Export JSON</button> <button id="import-settings" type="button">Import JSON</button> <button id="reset-settings" type="button" onclick="window.resetAllSettings && window.resetAllSettings()">Reset</button></span></div>
+    <div class="row"><span class="hint" id="settings-data-status">Save or restore the complete settings file.</span></div>
+    <input id="import-file" type="file" accept="application/json,.json" hidden />
   </div>
 
   <script type="module" src="settings.js"></script>

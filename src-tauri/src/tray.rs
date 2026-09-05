@@ -77,6 +77,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
             "settings" => {
                 if let Some(w) = app.get_webview_window("settings") {
                     let _ = w.unminimize();
+                    let _ = w.reload();
                     let _ = w.set_always_on_top(true);
                     let _ = w.set_size(tauri::LogicalSize::new(640.0, 720.0));
                     let _ = w.show();

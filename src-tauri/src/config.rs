@@ -34,6 +34,30 @@ pub struct Config {
     pub shift_color: String,
     pub alternate_color: String,
     pub border_color: String,
+    pub base_outline_enabled: bool,
+    pub base_outline_color: String,
+    pub base_outline_opacity: f64,
+    pub base_outline_width: f64,
+    pub grab_outline_enabled: bool,
+    pub grab_outline_color: String,
+    pub grab_outline_opacity: f64,
+    pub grab_outline_width: f64,
+    pub key_font_family: String,
+    pub key_font_size: f64,
+    pub key_font_bold: bool,
+    pub key_font_italic: bool,
+    pub key_font_ligatures: bool,
+    pub legend_font_family: String,
+    pub legend_font_size: f64,
+    pub legend_font_bold: bool,
+    pub legend_font_italic: bool,
+    pub legend_font_ligatures: bool,
+    pub layer_name_font_family: String,
+    pub layer_name_font_size: f64,
+    pub layer_name_font_bold: bool,
+    pub layer_name_font_italic: bool,
+    pub layer_name_font_ligatures: bool,
+    pub font_ligatures: bool,
     pub window_by_monitor: HashMap<String, WindowRect>,
     pub last_monitor: Option<String>,
     pub last_refresh: Option<String>,
@@ -63,6 +87,12 @@ impl Default for Config {
             shift_color: "#ffffff".into(),
             alternate_color: "#ffffff".into(),
             border_color: "#ffffff".into(),
+            base_outline_enabled: true, base_outline_color: "#78b4ff".into(), base_outline_opacity: 0.6, base_outline_width: 2.0,
+            grab_outline_enabled: true, grab_outline_color: "#ffdc78".into(), grab_outline_opacity: 0.9, grab_outline_width: 2.0,
+            key_font_family: "".into(), key_font_size: 1.0, key_font_bold: false, key_font_italic: false, key_font_ligatures: false,
+            legend_font_family: "".into(), legend_font_size: 1.0, legend_font_bold: false, legend_font_italic: false, legend_font_ligatures: false,
+            layer_name_font_family: "".into(), layer_name_font_size: 11.0, layer_name_font_bold: false, layer_name_font_italic: false, layer_name_font_ligatures: false,
+            font_ligatures: true,
             window_by_monitor: HashMap::new(),
             last_monitor: None,
             last_refresh: None,
@@ -84,6 +114,13 @@ impl Config {
         self.padding = self.padding.clamp(0.0, 60.0);
         self.shift_icon_scale = self.shift_icon_scale.clamp(0.5, 2.5);
         self.alternate_action_icon_scale = self.alternate_action_icon_scale.clamp(0.5, 2.5);
+        self.base_outline_opacity = self.base_outline_opacity.clamp(0.0, 1.0);
+        self.base_outline_width = self.base_outline_width.clamp(0.0, 5.0);
+        self.grab_outline_opacity = self.grab_outline_opacity.clamp(0.0, 1.0);
+        self.grab_outline_width = self.grab_outline_width.clamp(0.0, 5.0);
+        self.key_font_size = self.key_font_size.clamp(0.5, 2.0);
+        self.legend_font_size = self.legend_font_size.clamp(0.5, 2.0);
+        self.layer_name_font_size = self.layer_name_font_size.clamp(8.0, 24.0);
     }
 }
 

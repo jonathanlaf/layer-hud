@@ -72,7 +72,7 @@ fn main() {
                 if let (Ok(pos), Ok(size), Ok(Some(mon))) =
                     (window.outer_position(), window.inner_size(), window.current_monitor())
                 {
-                    let mut pos = pos.to_logical::<f64>(scale);
+                    let pos = pos.to_logical::<f64>(scale);
                     let mut size = size.to_logical::<f64>(scale);
                     // Keep the keyboard's aspect ratio and resize around its
                     // current center, so dragging any corner grows/shrinks it
@@ -81,12 +81,11 @@ fn main() {
                         let ratio = 13.6_f64 / 6.0_f64;
                         let target_h = size.width / ratio;
                         if (target_h - size.height).abs() > 1.0 {
-                            let center_x = pos.x + size.width / 2.0;
-                            let center_y = pos.y + size.height / 2.0;
                             size.height = target_h.max(120.0);
-                            let new_pos = tauri::LogicalPosition::new(center_x - size.width / 2.0, center_y - size.height / 2.0);
-                            pos = new_pos;
-                            let _ = window.set_position(new_pos);
+                            // Keep the corner being dragged anchored; only
+                            // correct the opposite dimension to the keyboard
+                            // ratio, avoiding the visible jump caused by
+                            // repeatedly recentering during native resize.
                             let _ = window.set_size(tauri::LogicalSize::new(size.width, size.height));
                         }
                     }
@@ -108,6 +107,9 @@ fn main() {
             oryx::set_config,
             oryx::clear_window_position,
             oryx::is_keymapp_online,
+            oryx::export_config,
+            oryx::import_config,
+            oryx::reset_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running layer-hud");

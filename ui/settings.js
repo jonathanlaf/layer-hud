@@ -3,8 +3,21 @@ const { invoke } = window.__TAURI__.core;
 let cfg = await invoke('get_config');
 const $ = (id) => document.getElementById(id);
 
+async function resetAllSettings() {
+  const status = $('settings-data-status');
+  if (status) status.textContent = 'Resetting…';
+  try {
+    cfg = await invoke('reset_config');
+    if (status) status.textContent = 'Settings reset to defaults.';
+    setTimeout(() => window.location.reload(), 250);
+  } catch (err) {
+    if (status) status.textContent = `Reset failed: ${err}`;
+  }
+}
+window.resetAllSettings = resetAllSettings;
+
 const tabSections = new Map([
-  ['layout', 'Layout'], ['appearance', 'Appearance'], ['colors', 'Colors'],
+  ['layout', 'General'], ['appearance', 'Appearance'], ['colors', 'Colors'], ['fonts', 'Fonts'],
   ['interaction', 'Interaction'], ['position', 'Position'],
 ]);
 const headings = [...document.querySelectorAll('h2')];
@@ -28,6 +41,20 @@ document.querySelectorAll('.tab-button').forEach((button) => {
   button.addEventListener('click', () => selectTab(button.dataset.tab));
 });
 selectTab('layout');
+
+for (const prefix of ['key', 'legend', 'layer_name']) {
+  const family = $(`${prefix.replace('_', '-')}-font-family`);
+  const size = `${prefix}-font-size`;
+  if (family) family.value = cfg[`${prefix}_font_family`] || '';
+  if ($(size)) { $(size).value = cfg[`${prefix}_font_size`]; $(`${size}-val`).value = cfg[`${prefix}_font_size`]; }
+}
+$('font-ligatures').checked = cfg.font_ligatures !== false;
+for (const button of document.querySelectorAll('[data-font-style]')) {
+  const prefix = button.dataset.fontStyle;
+  button.classList.toggle('active', button.dataset.style === 'bold' ? !!cfg[`${prefix}_font_bold`] : !!cfg[`${prefix}_font_italic`]);
+  button.addEventListener('click', () => { const field = `${prefix}_font_${button.dataset.style}`; cfg[field] = !cfg[field]; button.classList.toggle('active', cfg[field]); push(); });
+}
+$('font-ligatures').addEventListener('change', (e) => commit('font_ligatures', e.target.checked));
 
 const MOD_LABELS = { cmd: '⌘', alt: '⌥', ctrl: '⌃', shift: '⇧' };
 const MOD_ORDER = ['cmd', 'alt', 'ctrl', 'shift'];
@@ -154,7 +181,15 @@ for (const [id, field] of [
   ['padding', 'padding'],
   ['shift-icon-scale', 'shift_icon_scale'],
   ['alternate-action-icon-scale', 'alternate_action_icon_scale'],
+  ['key-font-size', 'key_font_size'],
+  ['legend-font-size', 'legend_font_size'],
+  ['layer-name-font-size', 'layer_name_font_size'],
 ]) bindNumeric(id, field);
+
+for (const prefix of ['key', 'legend', 'layer_name']) {
+  const id = `${prefix.replace('_', '-')}-font-family`;
+  $(id).addEventListener('change', (e) => commit(`${prefix}_font_family`, e.target.value));
+}
 
 $('colors-toggle').addEventListener('change', async (e) => {
   cfg.use_oryx_colors = e.target.checked;
@@ -233,19 +268,30 @@ $('reset-position').addEventListener('click', async () => {
 });
 
 $('export-settings').addEventListener('click', async () => {
-  try { await navigator.clipboard.writeText(await invoke('export_config')); $('settings-data-status').textContent = 'Settings copied to clipboard.'; }
+  try {
+    const blob = new Blob([await invoke('export_config')], { type: 'application/json' });
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+    const filename = `layer-hud-settings-${stamp}.json`;
+    a.href = URL.createObjectURL(blob); a.download = filename; a.click(); URL.revokeObjectURL(a.href);
+    $('settings-data-status').textContent = `Exported to ~/Downloads/${filename}`;
+  }
   catch (err) { $('settings-data-status').textContent = String(err); }
 });
 $('import-settings').addEventListener('click', async () => {
-  const json = prompt('Paste exported Layer HUD settings JSON:');
-  if (!json) return;
-  try { await invoke('import_config', { contents: json }); window.location.reload(); }
+  $('import-file').value = '';
+  $('import-file').click();
+});
+$('import-file').addEventListener('change', async (e) => {
+  const file = e.target.files?.[0]; if (!file) return;
+  try { await invoke('import_config', { contents: await file.text() }); window.location.reload(); }
   catch (err) { $('settings-data-status').textContent = String(err); }
 });
-$('reset-settings').addEventListener('click', async () => {
-  if (!confirm('Reset all settings to defaults?')) return;
-  try { await invoke('reset_config'); window.location.reload(); }
-  catch (err) { $('settings-data-status').textContent = String(err); }
+document.addEventListener('click', (event) => {
+  if (event.target.closest('#reset-settings') && !event.defaultPrevented) {
+    event.preventDefault();
+    if (confirm('Reset all settings to defaults?')) resetAllSettings();
+  }
 });
 
 $('apply-url').addEventListener('click', async () => {
