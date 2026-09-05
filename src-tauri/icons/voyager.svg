@@ -1,0 +1,26 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 16 16"
+  width="16"
+  height="16"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="0.65"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <g transform="translate(8 8) scale(1.95) translate(-4.05 -6.65)">
+  <!-- Left Voyager half -->
+  <path d="
+    M1.15 3.65
+    L6.15 4.25
+    L6.05 6.75
+    L7.15 7.45
+    L6.25 9.65
+    L4.70 8.70
+    L4.90 7.55
+    L0.95 7.05
+    Z
+  "/>
+  </g>
+</svg>

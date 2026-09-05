@@ -1,0 +1,31 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="3.75 3.75 8.5 8.5"
+  width="16"
+  height="16"
+  fill="none"
+>
+  <!-- Top hold wave -->
+  <path
+    d="M6 5.3 Q8 3.7 10 5.3"
+    stroke="currentColor"
+    stroke-width="1"
+    stroke-linecap="round"
+  />
+
+  <!-- Bottom hold wave -->
+  <path
+    d="M6 10.7 Q8 12.3 10 10.7"
+    stroke="currentColor"
+    stroke-width="1"
+    stroke-linecap="round"
+  />
+
+  <!-- Same dot as tapped -->
+  <circle
+    cx="8"
+    cy="8"
+    r="2"
+    fill="currentColor"
+  />
+</svg>
