@@ -9,11 +9,20 @@ use std::sync::Mutex;
 pub struct HudState {
     pub pinned: AtomicBool,
     pub config_lock: Mutex<()>,
+    /// grab_combo only, kept in sync by oryx::update_config on every write,
+    /// so grab.rs's 10Hz poll loop (runs forever regardless of Keymapp
+    /// connectivity) doesn't need to read and fully deserialize config.json
+    /// from disk on every tick just to check a value that rarely changes.
+    pub grab_combo: Mutex<Vec<String>>,
 }
 
 impl HudState {
     pub fn new() -> Self {
-        HudState { pinned: AtomicBool::new(false), config_lock: Mutex::new(()) }
+        HudState {
+            pinned: AtomicBool::new(false),
+            config_lock: Mutex::new(()),
+            grab_combo: Mutex::new(Vec::new()),
+        }
     }
 }
 

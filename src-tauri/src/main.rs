@@ -29,6 +29,7 @@ fn main() {
             // overlay has ever appeared on it — start at 30% of it, centered.
             if let Ok(path) = oryx::config_path(app.handle()) {
                 let cfg = config::load(&path);
+                *app.state::<state::HudState>().grab_combo.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = cfg.grab_combo.clone();
                 let monitors = overlay.available_monitors().unwrap_or_default();
                 // A freshly-created window's current_monitor() just reflects
                 // wherever the OS placed it (usually the primary display),
