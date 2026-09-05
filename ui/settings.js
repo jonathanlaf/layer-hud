@@ -3,6 +3,32 @@ const { invoke } = window.__TAURI__.core;
 let cfg = await invoke('get_config');
 const $ = (id) => document.getElementById(id);
 
+const tabSections = new Map([
+  ['layout', 'Layout'], ['appearance', 'Appearance'], ['colors', 'Colors'],
+  ['interaction', 'Interaction'], ['position', 'Position'],
+]);
+const headings = [...document.querySelectorAll('h2')];
+for (const [tab, title] of tabSections) {
+  const heading = headings.find((node) => node.textContent.trim() === title);
+  if (!heading) continue;
+  heading.dataset.tabSection = tab;
+  heading.nextElementSibling?.setAttribute('data-tab-section', tab);
+}
+function selectTab(tab) {
+  for (const button of document.querySelectorAll('.tab-button')) {
+    const active = button.dataset.tab === tab;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', active);
+  }
+  for (const node of document.querySelectorAll('[data-tab-section]')) {
+    node.hidden = node.dataset.tabSection !== tab;
+  }
+}
+document.querySelectorAll('.tab-button').forEach((button) => {
+  button.addEventListener('click', () => selectTab(button.dataset.tab));
+});
+selectTab('layout');
+
 const MOD_LABELS = { cmd: '⌘', alt: '⌥', ctrl: '⌃', shift: '⇧' };
 const MOD_ORDER = ['cmd', 'alt', 'ctrl', 'shift'];
 const comboText = (arr) => arr.map((m) => MOD_LABELS[m]).join('') || '—';
@@ -12,8 +38,13 @@ $('bg-color').value = cfg.bg_color;
 $('key-fill-color').value = cfg.key_fill_color;
 $('text-color').value = cfg.text_color;
 $('legend-color').value = cfg.legend_color;
+$('shift-color').value = cfg.shift_color;
+$('alternate-color').value = cfg.alternate_color;
 $('border-color').value = cfg.border_color;
 $('colors-toggle').checked = cfg.use_oryx_colors;
+$('layer-action-icons').checked = cfg.show_layer_action_icons;
+$('shift-icons').checked = cfg.show_shift_icons;
+$('alternate-action-icons').checked = cfg.show_alternate_action_icons;
 $('combo-display').textContent = comboText(cfg.grab_combo);
 
 // Serialized so rapid-fire commits (e.g. fast typing, each one a separate
@@ -48,6 +79,8 @@ bind('bg-color', 'bg_color');
 bind('key-fill-color', 'key_fill_color');
 bind('text-color', 'text_color');
 bind('legend-color', 'legend_color');
+bind('shift-color', 'shift_color');
+bind('alternate-color', 'alternate_color');
 bind('border-color', 'border_color');
 
 // Numeric settings: slider + manual text entry, kept in sync both ways.
@@ -119,11 +152,25 @@ for (const [id, field] of [
   ['key-fill-opacity', 'key_fill_opacity'],
   ['border-width', 'border_width'],
   ['padding', 'padding'],
+  ['shift-icon-scale', 'shift_icon_scale'],
+  ['alternate-action-icon-scale', 'alternate_action_icon_scale'],
 ]) bindNumeric(id, field);
 
 $('colors-toggle').addEventListener('change', async (e) => {
   cfg.use_oryx_colors = e.target.checked;
   await push();
+});
+
+$('layer-action-icons').addEventListener('change', (e) => {
+  commit('show_layer_action_icons', e.target.checked);
+});
+
+$('shift-icons').addEventListener('change', (e) => {
+  commit('show_shift_icons', e.target.checked);
+});
+
+$('alternate-action-icons').addEventListener('change', (e) => {
+  commit('show_alternate_action_icons', e.target.checked);
 });
 
 try {

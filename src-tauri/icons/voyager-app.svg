@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="512" height="512">
+  <!-- A solid light tile keeps the app icon legible on light and dark desktops. -->
+  <rect x="0.5" y="0.5" width="15" height="15" rx="3.25" fill="#f5f5f7" stroke="#d1d1d6" stroke-width="0.15"/>
+  <g transform="translate(8 8) scale(1.75) translate(-4.05 -6.65)" fill="none" stroke="#1d1d1f"
+     stroke-width="0.65" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M1.15 3.65 L6.15 4.25 L6.05 6.75 L7.15 7.45 L6.25 9.65 L4.70 8.70 L4.90 7.55 L0.95 7.05 Z"/>
+  </g>
+</svg>
