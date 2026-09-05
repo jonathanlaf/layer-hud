@@ -72,8 +72,24 @@ fn main() {
                 if let (Ok(pos), Ok(size), Ok(Some(mon))) =
                     (window.outer_position(), window.inner_size(), window.current_monitor())
                 {
-                    let pos = pos.to_logical::<f64>(scale);
-                    let size = size.to_logical::<f64>(scale);
+                    let mut pos = pos.to_logical::<f64>(scale);
+                    let mut size = size.to_logical::<f64>(scale);
+                    // Keep the keyboard's aspect ratio and resize around its
+                    // current center, so dragging any corner grows/shrinks it
+                    // without making the overlay drift or distort its padding.
+                    if matches!(event, tauri::WindowEvent::Resized(_)) {
+                        let ratio = 13.6_f64 / 6.0_f64;
+                        let target_h = size.width / ratio;
+                        if (target_h - size.height).abs() > 1.0 {
+                            let center_x = pos.x + size.width / 2.0;
+                            let center_y = pos.y + size.height / 2.0;
+                            size.height = target_h.max(120.0);
+                            let new_pos = tauri::LogicalPosition::new(center_x - size.width / 2.0, center_y - size.height / 2.0);
+                            pos = new_pos;
+                            let _ = window.set_position(new_pos);
+                            let _ = window.set_size(tauri::LogicalSize::new(size.width, size.height));
+                        }
+                    }
                     let rect = config::WindowRect { x: pos.x, y: pos.y, w: size.width, h: size.height };
                     let key = oryx::monitor_key(&mon);
                     if let Err(e) = oryx::update_config(app, move |cfg| {
@@ -90,7 +106,8 @@ fn main() {
             oryx::load_layout,
             oryx::get_config,
             oryx::set_config,
-            oryx::clear_window_position
+            oryx::clear_window_position,
+            oryx::is_keymapp_online,
         ])
         .run(tauri::generate_context!())
         .expect("error while running layer-hud");

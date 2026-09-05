@@ -232,6 +232,22 @@ $('reset-position').addEventListener('click', async () => {
   await invoke('clear_window_position');
 });
 
+$('export-settings').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(await invoke('export_config')); $('settings-data-status').textContent = 'Settings copied to clipboard.'; }
+  catch (err) { $('settings-data-status').textContent = String(err); }
+});
+$('import-settings').addEventListener('click', async () => {
+  const json = prompt('Paste exported Layer HUD settings JSON:');
+  if (!json) return;
+  try { await invoke('import_config', { contents: json }); window.location.reload(); }
+  catch (err) { $('settings-data-status').textContent = String(err); }
+});
+$('reset-settings').addEventListener('click', async () => {
+  if (!confirm('Reset all settings to defaults?')) return;
+  try { await invoke('reset_config'); window.location.reload(); }
+  catch (err) { $('settings-data-status').textContent = String(err); }
+});
+
 $('apply-url').addEventListener('click', async () => {
   $('url-status-row').hidden = false;
   $('url-status').textContent = '…';

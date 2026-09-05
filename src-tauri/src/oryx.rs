@@ -1,6 +1,6 @@
 use serde_json::{json, Value};
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 const GRAPHQL_URL: &str = "https://oryx.zsa.io/graphql";
 const QUERY: &str = "query getLayout($hashId: String!, $revisionId: String!, $geometry: String) { layout(hashId: $hashId, revisionId: $revisionId, geometry: $geometry) { title revision { title config layers { position title keys } } } }";
@@ -275,6 +275,34 @@ pub fn clear_window_position(app: AppHandle) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+#[tauri::command]
+pub fn export_config(app: AppHandle) -> Result<String, String> {
+    let cfg = crate::config::load(&config_path(&app)?);
+    serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn import_config(app: AppHandle, contents: String) -> Result<crate::config::Config, String> {
+    let mut imported: crate::config::Config = serde_json::from_str(&contents)
+        .map_err(|e| format!("Invalid settings JSON: {e}"))?;
+    imported.clamp();
+    let result = update_config(&app, |cfg| *cfg = imported.clone())?;
+    let _ = app.emit("config-changed", result.clone());
+    Ok(result)
+}
+
+#[tauri::command]
+pub fn reset_config(app: AppHandle) -> Result<crate::config::Config, String> {
+    let result = update_config(&app, |cfg| *cfg = crate::config::Config::default())?;
+    let _ = app.emit("config-changed", result.clone());
+    Ok(result)
+}
+
+#[tauri::command]
+pub fn is_keymapp_online(app: AppHandle) -> bool {
+    app.state::<crate::state::HudState>().keymapp_online.load(std::sync::atomic::Ordering::SeqCst)
 }
 
 fn chrono_free_now() -> String {
