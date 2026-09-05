@@ -117,6 +117,15 @@ where
     let mut cfg = crate::config::load(&path);
     f(&mut cfg);
     crate::config::save(&path, &cfg).map_err(|e| e.to_string())?;
+    // Most update_config callers (e.g. the window-drag handler, which fires
+    // rapidly during a drag) never touch grab_combo — skip the lock/clone
+    // entirely unless it actually changed, rather than rewriting an
+    // identical Vec<String> on every unrelated write.
+    let mut cached_combo = state.grab_combo.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if *cached_combo != cfg.grab_combo {
+        *cached_combo = cfg.grab_combo.clone();
+    }
+    drop(cached_combo);
     Ok(cfg)
 }
 

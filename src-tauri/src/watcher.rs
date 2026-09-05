@@ -7,27 +7,72 @@ pub fn extract_layer(status: &Value) -> Option<i64> {
     status.pointer("/keyboard/current_layer").and_then(Value::as_i64)
 }
 
+// Neither Kontroll::new() nor get_status() has any built-in timeout (tonic's
+// HTTP/2 keepalive/request timeouts are opt-in, and the kontroll crate
+// doesn't expose them), so a keymapp daemon that accepts the connection but
+// stops responding (deadlock, suspended around sleep/wake, etc.) would hang
+// either call forever. That risk existed before the client was reused too,
+// but with a long-lived connection it now means the *same* stuck client
+// every tick instead of a fresh one, so it's bounded here rather than left
+// open. Local Unix-socket IPC normally completes in well under 100ms, so 1s
+// is generous without stalling offline-detection for long on a real hang.
+const KONTROLL_TIMEOUT: Duration = Duration::from_secs(1);
+
 pub fn spawn(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         let mut last_layer: Option<i64> = None;
         let mut online = true;
         let mut backoff = Duration::from_millis(250);
-        let mut had_error = false;
+        // Dedups repeated stderr spam by message content rather than a
+        // single boolean, so a failure mode *changing* (e.g. "not running"
+        // to "hung") is never silently hidden just because some earlier,
+        // different failure already set a shared flag.
+        let mut last_error: Option<String> = None;
+        // Reused across polls instead of reconnecting every ~100ms tick —
+        // only dropped and re-established when a request actually fails.
+        // Opening a fresh Unix-socket + HTTP/2 connection ~10x/second,
+        // forever, was leaking enough over a long-running session to
+        // exhaust memory.
+        let mut client: Option<Kontroll> = None;
         loop {
-            // TODO: Consider caching the Kontroll connection and reconnecting only on error
-            // to reduce the overhead of creating new instances every 100ms polling cycle.
-            let status = match Kontroll::new(None).await {
-                Ok(api) => {
-                    had_error = false;
-                    api.get_status().await.ok()
-                }
-                Err(e) => {
-                    if !had_error {
-                        eprintln!("Failed to connect to keymapp: {}", e);
-                        had_error = true;
+            if client.is_none() {
+                client = match tokio::time::timeout(KONTROLL_TIMEOUT, Kontroll::new(None)).await {
+                    Ok(Ok(api)) => {
+                        last_error = None;
+                        Some(api)
                     }
-                    None
-                }
+                    Ok(Err(e)) => {
+                        log_once(&mut last_error, format!("Failed to connect to keymapp: {e}"));
+                        None
+                    }
+                    Err(_) => {
+                        log_once(&mut last_error, "Timed out connecting to keymapp".to_string());
+                        None
+                    }
+                };
+            }
+            let status = match &client {
+                Some(api) => match tokio::time::timeout(KONTROLL_TIMEOUT, api.get_status()).await {
+                    Ok(Ok(s)) => {
+                        last_error = None;
+                        Some(s)
+                    }
+                    // Treat a request failure OR a timeout as a dead
+                    // connection (Keymapp restarted, keyboard unplugged, a
+                    // hung daemon, etc.) and reconnect on the next tick
+                    // instead of retrying the same stuck client forever.
+                    Ok(Err(e)) => {
+                        log_once(&mut last_error, format!("Keymapp request failed: {e}"));
+                        client = None;
+                        None
+                    }
+                    Err(_) => {
+                        log_once(&mut last_error, "Timed out waiting for keymapp".to_string());
+                        client = None;
+                        None
+                    }
+                },
+                None => None,
             };
             match status.and_then(|s| serde_json::to_value(&s).ok()) {
                 Some(v) => match extract_layer(&v) {
@@ -53,6 +98,16 @@ pub fn spawn(app: AppHandle) {
             }
         }
     });
+}
+
+/// Prints `msg` to stderr only if it differs from the last message logged —
+/// repeats every ~100ms-1s tick are silenced, but a change in failure mode
+/// (a different message) always gets its own line.
+fn log_once(last_error: &mut Option<String>, msg: String) {
+    if last_error.as_deref() != Some(msg.as_str()) {
+        eprintln!("{msg}");
+        *last_error = Some(msg);
+    }
 }
 
 async fn sleep_offline(app: &AppHandle, online: &mut bool, backoff: &mut Duration) {
