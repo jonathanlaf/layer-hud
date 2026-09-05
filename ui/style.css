@@ -10,21 +10,47 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
             justify-content: center; font-size: calc(var(--key-unit, 62px) * 0.258);
             color: var(--text-color, #fff); opacity: var(--char-opacity, 1); }
 .key .hold { position: absolute; bottom: 2px; left: 0; right: 0;
-             font-size: calc(var(--key-unit, 62px) * 0.145); opacity: calc(0.75 * var(--char-opacity, 1)); color: var(--legend-color, #fff); }
+             font-size: calc(var(--key-unit, 62px) * 0.145); opacity: calc(0.75 * var(--char-opacity, 1)); color: var(--text-color, #fff); }
 .key .dtap { position: absolute; top: 1px; right: 4px;
-             font-size: calc(var(--key-unit, 62px) * 0.145); opacity: calc(0.75 * var(--char-opacity, 1)); color: var(--legend-color, #fff); }
+             font-size: calc(var(--key-unit, 62px) * 0.145); opacity: calc(0.75 * var(--char-opacity, 1)); color: var(--text-color, #fff); }
 .key .thold { position: absolute; top: 1px; left: 4px;
-              font-size: calc(var(--key-unit, 62px) * 0.145); opacity: calc(0.75 * var(--char-opacity, 1)); color: var(--legend-color, #fff); }
+              font-size: calc(var(--key-unit, 62px) * 0.145); opacity: calc(0.75 * var(--char-opacity, 1)); color: var(--text-color, #fff); }
 .key .shift { position: absolute; top: 1px; left: 0; right: 0; text-align: center;
-              font-size: calc(var(--key-unit, 62px) * 0.145); opacity: calc(0.75 * var(--char-opacity, 1)); color: var(--legend-color, #fff); }
+              font-size: calc(var(--key-unit, 62px) * 0.145); opacity: calc(0.75 * var(--char-opacity, 1)); color: var(--shift-color, #fff); }
+.key .alternate-action { color: var(--alternate-color, #fff); }
+.key .layer-action { color: var(--legend-color, #fff); }
 .key.trigger-active { border-color: #ffd479; box-shadow: 0 0 6px #ffd479; }
-#badge { position: absolute; top: 4px; right: 10px; font-size: 11px; opacity: 0.8; }
+.layer-action-icon, .alternate-action-icon, .shift-icon { display: none; }
+body.show-layer-action-icons .layer-action-icon,
+body.show-alternate-action-icons .alternate-action-icon,
+body.show-shift-icons .shift-icon {
+  display: inline-block; flex: 0 0 auto;
+  width: calc(1.5em * var(--alternate-action-icon-scale, 1));
+  height: calc(1.5em * var(--alternate-action-icon-scale, 1)); vertical-align: middle;
+  background-color: currentColor;
+  -webkit-mask: var(--action-icon) center / contain no-repeat;
+  mask: var(--action-icon) center / contain no-repeat;
+}
+.layer-action-icon.tapped, .alternate-action-icon.tapped { --action-icon: url('icons/tapped.svg'); }
+.layer-action-icon.held, .alternate-action-icon.held { --action-icon: url('icons/held.svg'); }
+.layer-action-icon.double-tapped, .alternate-action-icon.double-tapped { --action-icon: url('icons/double-tapped.svg'); }
+.layer-action-icon.tapped-held, .alternate-action-icon.tapped-held { --action-icon: url('icons/tapped-held.svg'); }
+body.show-shift-icons .shift-icon {
+  width: calc(0.85em * var(--shift-icon-scale, 1));
+  height: calc(0.85em * var(--shift-icon-scale, 1)); vertical-align: baseline;
+}
+.shift-icon { --action-icon: url('icons/shift.svg'); margin-right: 0.15em; }
+#badge { position: absolute; top: 7px; left: 50%; transform: translateX(-50%); z-index: 3; font-size: var(--layer-name-font-size, 11px); color: var(--layer-name-color, #fff); opacity: var(--layer-name-opacity, 1); padding: 3px 10px; border-radius: 999px; background: var(--key-fill, transparent); border: 1px solid var(--layer-name-border, rgba(255,255,255,0.35)); white-space: nowrap; }
 #startup-error { position: absolute; inset: 0; display: flex; align-items: center;
                  justify-content: center; text-align: center; padding: 12px;
                  font-size: 13px; opacity: 0.9; }
 body[data-base="0"] #board { outline: 2px solid rgba(120,180,255,0.6); outline-offset: -2px; }
-body.offline #board { opacity: 0.4; }
-body.offline #badge::after { content: " — Keymapp offline"; color: #ff9c9c; }
+body.offline .layer { opacity: 0.4; }
+body.offline #badge { opacity: calc(var(--layer-name-opacity, 1) * 0.4); }
+#offline-indicator { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 4; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: #fff; background: #d92c2c; border: 1px solid rgba(255,255,255,0.65); }
+#offline-indicator[hidden] { display: none; }
+.key.thumb-left { transform: rotate(15deg); transform-origin: center; }
+.key.thumb-right { transform: rotate(-15deg); transform-origin: center; }
 body.grab #board { outline: 2px solid rgba(255,220,120,0.9); outline-offset: -2px; }
 .resize-handle { display: none; position: fixed; width: 18px; height: 18px; z-index: 10;
                  border: 2px solid rgba(255,220,120,0.9); }

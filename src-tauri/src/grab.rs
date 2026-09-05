@@ -36,18 +36,14 @@ pub fn spawn(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         let mut last_interactive: Option<bool> = None;
         loop {
-            let Ok(path) = crate::oryx::config_path(&app) else {
-                tokio::time::sleep(Duration::from_millis(1000)).await;
-                continue;
-            };
-            let cfg = crate::config::load(&path);
-            let mask = combo_mask(&cfg.grab_combo);
+            let state = app.state::<crate::state::HudState>();
+            // Compute the mask while still holding the guard instead of
+            // cloning the Vec out first — combo_mask only needs a &[String],
+            // so this avoids a fresh allocation every 100ms tick forever.
+            let mask = combo_mask(&state.grab_combo.lock().unwrap_or_else(|poisoned| poisoned.into_inner()));
             let flags = unsafe { CGEventSourceFlagsState(COMBINED_SESSION_STATE) };
             let grabbed = combo_active(flags, mask);
-            let pinned = app
-                .state::<crate::state::HudState>()
-                .pinned
-                .load(std::sync::atomic::Ordering::SeqCst);
+            let pinned = state.pinned.load(std::sync::atomic::Ordering::SeqCst);
             // The tray "pin" handler and this loop both want a say in whether the
             // overlay accepts mouse events; recomputing from both inputs every
             // tick (rather than only reacting to combo transitions) keeps them

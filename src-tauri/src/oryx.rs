@@ -1,6 +1,6 @@
 use serde_json::{json, Value};
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 const GRAPHQL_URL: &str = "https://oryx.zsa.io/graphql";
 const QUERY: &str = "query getLayout($hashId: String!, $revisionId: String!, $geometry: String) { layout(hashId: $hashId, revisionId: $revisionId, geometry: $geometry) { title revision { title config layers { position title keys } } } }";
@@ -47,6 +47,61 @@ fn cache_path(app: &AppHandle) -> Result<PathBuf, String> {
         .map_err(|e| e.to_string())
 }
 
+fn legacy_cache_path() -> Option<PathBuf> {
+    std::env::var_os("HOME").map(|home| PathBuf::from(home).join("Library/Application Support/io.jonathanlaf.voyagerhud/layout.json"))
+}
+
+/// Stable-enough key for "which physical display is this" across launches —
+/// the monitor's name (e.g. "Built-in Retina Display") when macOS reports
+/// one, falling back to its resolution if not. Two identical external
+/// monitor models sharing a name is an accepted, rare edge case for a
+/// personal utility app.
+pub fn monitor_key(mon: &tauri::Monitor) -> String {
+    match mon.name() {
+        Some(name) if !name.is_empty() => name.clone(),
+        _ => {
+            let size = mon.size();
+            format!("{}x{}", size.width, size.height)
+        }
+    }
+}
+
+/// A window occupying 30% of the monitor, centered on it — the starting
+/// point for a monitor the overlay has never been positioned on before.
+pub fn default_rect_for_monitor(mon: &tauri::Monitor) -> crate::config::WindowRect {
+    let scale = mon.scale_factor();
+    let pos = mon.position().to_logical::<f64>(scale);
+    let size = mon.size().to_logical::<f64>(scale);
+    let w = size.width * 0.3;
+    let h = size.height * 0.3;
+    crate::config::WindowRect {
+        x: pos.x + (size.width - w) / 2.0,
+        y: pos.y + (size.height - h) / 2.0,
+        w,
+        h,
+    }
+}
+
+/// Whether a saved rect's origin still falls within a monitor's *current*
+/// bounds. The same monitor (same monitor_key) can still go stale — a
+/// resolution/scaling change or a rearranged multi-monitor layout moves its
+/// live position()/size() without changing its name — so a rect that was
+/// valid when saved isn't automatically still valid now.
+pub fn rect_fits_monitor(rect: &crate::config::WindowRect, mon: &tauri::Monitor) -> bool {
+    let scale = mon.scale_factor();
+    let pos = mon.position().to_logical::<f64>(scale);
+    let size = mon.size().to_logical::<f64>(scale);
+    rect.x >= pos.x && rect.x < pos.x + size.width && rect.y >= pos.y && rect.y < pos.y + size.height
+}
+
+/// Position and size a window from a saved rect — the one place both the
+/// startup restore and "reset position" apply a WindowRect, so a future
+/// change to how that's done (e.g. clamping) only needs to happen once.
+pub fn apply_rect(window: &tauri::WebviewWindow, rect: &crate::config::WindowRect) {
+    let _ = window.set_position(tauri::LogicalPosition::new(rect.x, rect.y));
+    let _ = window.set_size(tauri::LogicalSize::new(rect.w, rect.h));
+}
+
 /// Load, mutate and save config.json as one atomic step. config.json is
 /// written from several independent places (this module's commands, the
 /// window-drag handler in main.rs) with no other coordination between them;
@@ -66,6 +121,15 @@ where
     let mut cfg = crate::config::load(&path);
     f(&mut cfg);
     crate::config::save(&path, &cfg).map_err(|e| e.to_string())?;
+    // Most update_config callers (e.g. the window-drag handler, which fires
+    // rapidly during a drag) never touch grab_combo — skip the lock/clone
+    // entirely unless it actually changed, rather than rewriting an
+    // identical Vec<String> on every unrelated write.
+    let mut cached_combo = state.grab_combo.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if *cached_combo != cfg.grab_combo {
+        *cached_combo = cfg.grab_combo.clone();
+    }
+    drop(cached_combo);
     Ok(cfg)
 }
 
@@ -75,14 +139,11 @@ where
 /// over so existing settings aren't silently reset to defaults on upgrade.
 pub fn migrate_legacy_identifier(app: &AppHandle) -> Result<(), String> {
     let new_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-    if new_dir.join("config.json").exists() {
-        return Ok(());
-    }
     let Some(home) = std::env::var_os("HOME") else {
         return Ok(());
     };
     let old_dir = PathBuf::from(home).join("Library/Application Support/io.jonathanlaf.voyagerhud");
-    if !old_dir.join("config.json").exists() {
+    if !old_dir.exists() {
         return Ok(());
     }
     std::fs::create_dir_all(&new_dir).map_err(|e| e.to_string())?;
@@ -91,9 +152,11 @@ pub fn migrate_legacy_identifier(app: &AppHandle) -> Result<(), String> {
     // every other writer gets — this runs before grab::spawn/tray::build
     // start so nothing else touches config.json yet, but there's no reason
     // for this to be the one path that doesn't go through the shared helpers.
-    let legacy_cfg = crate::config::load(&old_dir.join("config.json"));
-    crate::config::save(&new_dir.join("config.json"), &legacy_cfg).map_err(|e| e.to_string())?;
-    if old_dir.join("layout.json").exists() {
+    if !new_dir.join("config.json").exists() && old_dir.join("config.json").exists() {
+        let legacy_cfg = crate::config::load(&old_dir.join("config.json"));
+        crate::config::save(&new_dir.join("config.json"), &legacy_cfg).map_err(|e| e.to_string())?;
+    }
+    if !new_dir.join("layout.json").exists() && old_dir.join("layout.json").exists() {
         let _ = std::fs::copy(old_dir.join("layout.json"), new_dir.join("layout.json"));
     }
     Ok(())
@@ -138,7 +201,9 @@ pub async fn refresh_layout(app: AppHandle, url: String) -> Result<Value, String
             Err(e)
         }
         Err(FetchError::Transport(e)) => {
-            let cached = std::fs::read_to_string(&cache).map_err(|_| e.clone())?;
+            let cached = std::fs::read_to_string(&cache)
+                .or_else(|_| legacy_cache_path().ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "no legacy cache")).and_then(std::fs::read_to_string))
+                .map_err(|_| e.clone())?;
             let mut v: Value = serde_json::from_str(&cached).map_err(|_| e)?;
             if let Value::Object(ref mut obj) = v {
                 obj.insert("stale".to_string(), json!(true));
@@ -151,7 +216,10 @@ pub async fn refresh_layout(app: AppHandle, url: String) -> Result<Value, String
 #[tauri::command]
 pub async fn load_layout(app: AppHandle) -> Result<Value, String> {
     let cache = cache_path(&app)?;
-    if let Ok(s) = std::fs::read_to_string(&cache) {
+    let cached = std::fs::read_to_string(&cache).or_else(|_| {
+        legacy_cache_path().ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "no legacy cache")).and_then(std::fs::read_to_string)
+    });
+    if let Ok(s) = cached {
         if let Ok(v) = serde_json::from_str::<Value>(&s) {
             return Ok(v);
         }
@@ -183,11 +251,11 @@ pub fn set_config(app: AppHandle, mut config: crate::config::Config) -> Result<(
     // fine and silently do nothing forever. Route new oryx_url changes
     // through refresh_layout instead, the way the "Fetch" button already does.
     let merged = update_config(&app, move |cfg| {
-        let window = cfg.window.take();
+        let window_by_monitor = std::mem::take(&mut cfg.window_by_monitor);
         let oryx_url = std::mem::take(&mut cfg.oryx_url);
         let last_refresh = cfg.last_refresh.take();
         *cfg = config;
-        cfg.window = window;
+        cfg.window_by_monitor = window_by_monitor;
         cfg.oryx_url = oryx_url;
         cfg.last_refresh = last_refresh;
     })?;
@@ -197,11 +265,57 @@ pub fn set_config(app: AppHandle, mut config: crate::config::Config) -> Result<(
 
 #[tauri::command]
 pub fn clear_window_position(app: AppHandle) -> Result<(), String> {
-    update_config(&app, |cfg| cfg.window = None)?;
     if let Some(w) = app.get_webview_window("overlay") {
-        let _ = w.center();
+        if let Ok(Some(mon)) = w.current_monitor() {
+            let key = monitor_key(&mon);
+            update_config(&app, {
+                let key = key.clone();
+                move |cfg| {
+                    cfg.window_by_monitor.remove(&key);
+                    cfg.last_monitor = Some(key.clone());
+                }
+            })?;
+            // Reset means "start over on this monitor" — the same 30%-
+            // centered rect a monitor gets the first time it's ever seen.
+            apply_rect(&w, &default_rect_for_monitor(&mon));
+        } else {
+            let _ = w.center();
+        }
     }
     Ok(())
+}
+
+#[tauri::command]
+pub fn export_config(app: AppHandle) -> Result<String, String> {
+    let cfg = crate::config::load(&config_path(&app)?);
+    serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn import_config(app: AppHandle, contents: String) -> Result<crate::config::Config, String> {
+    let mut imported: crate::config::Config = serde_json::from_str(&contents)
+        .map_err(|e| format!("Invalid settings JSON: {e}"))?;
+    imported.clamp();
+    let result = update_config(&app, |cfg| *cfg = imported.clone())?;
+    let _ = app.emit("config-changed", result.clone());
+    Ok(result)
+}
+
+#[tauri::command]
+pub fn reset_config(app: AppHandle) -> Result<crate::config::Config, String> {
+    let result = update_config(&app, |cfg| *cfg = crate::config::Config::default())?;
+    if let Some(window) = app.get_webview_window("overlay") {
+        if let Ok(Some(mon)) = window.current_monitor() {
+            apply_rect(&window, &default_rect_for_monitor(&mon));
+        }
+    }
+    let _ = app.emit("config-changed", result.clone());
+    Ok(result)
+}
+
+#[tauri::command]
+pub fn is_keymapp_online(app: AppHandle) -> bool {
+    app.state::<crate::state::HudState>().keymapp_online.load(std::sync::atomic::Ordering::SeqCst)
 }
 
 fn chrono_free_now() -> String {

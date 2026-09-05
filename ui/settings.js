@@ -3,6 +3,59 @@ const { invoke } = window.__TAURI__.core;
 let cfg = await invoke('get_config');
 const $ = (id) => document.getElementById(id);
 
+async function resetAllSettings() {
+  const status = $('settings-data-status');
+  if (status) status.textContent = 'Resetting…';
+  try {
+    cfg = await invoke('reset_config');
+    if (status) status.textContent = 'Settings reset to defaults.';
+    setTimeout(() => window.location.reload(), 250);
+  } catch (err) {
+    if (status) status.textContent = `Reset failed: ${err}`;
+  }
+}
+window.resetAllSettings = resetAllSettings;
+
+const tabSections = new Map([
+  ['layout', 'General'], ['appearance', 'Appearance'], ['colors', 'Colors'], ['fonts', 'Fonts'],
+  ['interaction', 'Interaction'], ['position', 'Position'],
+]);
+const headings = [...document.querySelectorAll('h2')];
+for (const [tab, title] of tabSections) {
+  const heading = headings.find((node) => node.textContent.trim() === title);
+  if (!heading) continue;
+  heading.dataset.tabSection = tab;
+  heading.nextElementSibling?.setAttribute('data-tab-section', tab);
+}
+function selectTab(tab) {
+  for (const button of document.querySelectorAll('.tab-button')) {
+    const active = button.dataset.tab === tab;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', active);
+  }
+  for (const node of document.querySelectorAll('[data-tab-section]')) {
+    node.hidden = node.dataset.tabSection !== tab;
+  }
+}
+document.querySelectorAll('.tab-button').forEach((button) => {
+  button.addEventListener('click', () => selectTab(button.dataset.tab));
+});
+selectTab('layout');
+
+for (const prefix of ['key', 'legend', 'layer_name']) {
+  const family = $(`${prefix.replace('_', '-')}-font-family`);
+  const size = `${prefix}-font-size`;
+  if (family) family.value = cfg[`${prefix}_font_family`] || '';
+  if ($(size)) { $(size).value = cfg[`${prefix}_font_size`]; $(`${size}-val`).value = cfg[`${prefix}_font_size`]; }
+}
+$('font-ligatures').checked = cfg.font_ligatures !== false;
+for (const button of document.querySelectorAll('[data-font-style]')) {
+  const prefix = button.dataset.fontStyle;
+  button.classList.toggle('active', button.dataset.style === 'bold' ? !!cfg[`${prefix}_font_bold`] : !!cfg[`${prefix}_font_italic`]);
+  button.addEventListener('click', () => { const field = `${prefix}_font_${button.dataset.style}`; cfg[field] = !cfg[field]; button.classList.toggle('active', cfg[field]); push(); });
+}
+$('font-ligatures').addEventListener('change', (e) => commit('font_ligatures', e.target.checked));
+
 const MOD_LABELS = { cmd: '⌘', alt: '⌥', ctrl: '⌃', shift: '⇧' };
 const MOD_ORDER = ['cmd', 'alt', 'ctrl', 'shift'];
 const comboText = (arr) => arr.map((m) => MOD_LABELS[m]).join('') || '—';
@@ -12,8 +65,13 @@ $('bg-color').value = cfg.bg_color;
 $('key-fill-color').value = cfg.key_fill_color;
 $('text-color').value = cfg.text_color;
 $('legend-color').value = cfg.legend_color;
+$('shift-color').value = cfg.shift_color;
+$('alternate-color').value = cfg.alternate_color;
 $('border-color').value = cfg.border_color;
 $('colors-toggle').checked = cfg.use_oryx_colors;
+$('layer-action-icons').checked = cfg.show_layer_action_icons;
+$('shift-icons').checked = cfg.show_shift_icons;
+$('alternate-action-icons').checked = cfg.show_alternate_action_icons;
 $('combo-display').textContent = comboText(cfg.grab_combo);
 
 // Serialized so rapid-fire commits (e.g. fast typing, each one a separate
@@ -48,6 +106,8 @@ bind('bg-color', 'bg_color');
 bind('key-fill-color', 'key_fill_color');
 bind('text-color', 'text_color');
 bind('legend-color', 'legend_color');
+bind('shift-color', 'shift_color');
+bind('alternate-color', 'alternate_color');
 bind('border-color', 'border_color');
 
 // Numeric settings: slider + manual text entry, kept in sync both ways.
@@ -119,11 +179,33 @@ for (const [id, field] of [
   ['key-fill-opacity', 'key_fill_opacity'],
   ['border-width', 'border_width'],
   ['padding', 'padding'],
+  ['shift-icon-scale', 'shift_icon_scale'],
+  ['alternate-action-icon-scale', 'alternate_action_icon_scale'],
+  ['key-font-size', 'key_font_size'],
+  ['legend-font-size', 'legend_font_size'],
+  ['layer-name-font-size', 'layer_name_font_size'],
 ]) bindNumeric(id, field);
+
+for (const prefix of ['key', 'legend', 'layer_name']) {
+  const id = `${prefix.replace('_', '-')}-font-family`;
+  $(id).addEventListener('change', (e) => commit(`${prefix}_font_family`, e.target.value));
+}
 
 $('colors-toggle').addEventListener('change', async (e) => {
   cfg.use_oryx_colors = e.target.checked;
   await push();
+});
+
+$('layer-action-icons').addEventListener('change', (e) => {
+  commit('show_layer_action_icons', e.target.checked);
+});
+
+$('shift-icons').addEventListener('change', (e) => {
+  commit('show_shift_icons', e.target.checked);
+});
+
+$('alternate-action-icons').addEventListener('change', (e) => {
+  commit('show_alternate_action_icons', e.target.checked);
 });
 
 try {
@@ -183,6 +265,33 @@ for (const type of ['keydown', 'keyup']) {
 
 $('reset-position').addEventListener('click', async () => {
   await invoke('clear_window_position');
+});
+
+$('export-settings').addEventListener('click', async () => {
+  try {
+    const blob = new Blob([await invoke('export_config')], { type: 'application/json' });
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+    const filename = `layer-hud-settings-${stamp}.json`;
+    a.href = URL.createObjectURL(blob); a.download = filename; a.click(); URL.revokeObjectURL(a.href);
+    $('settings-data-status').textContent = `Exported to ~/Downloads/${filename}`;
+  }
+  catch (err) { $('settings-data-status').textContent = String(err); }
+});
+$('import-settings').addEventListener('click', async () => {
+  $('import-file').value = '';
+  $('import-file').click();
+});
+$('import-file').addEventListener('change', async (e) => {
+  const file = e.target.files?.[0]; if (!file) return;
+  try { await invoke('import_config', { contents: await file.text() }); window.location.reload(); }
+  catch (err) { $('settings-data-status').textContent = String(err); }
+});
+document.addEventListener('click', (event) => {
+  if (event.target.closest('#reset-settings') && !event.defaultPrevented) {
+    event.preventDefault();
+    if (confirm('Reset all settings to defaults?')) resetAllSettings();
+  }
 });
 
 $('apply-url').addEventListener('click', async () => {

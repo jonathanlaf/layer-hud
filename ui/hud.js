@@ -1,5 +1,6 @@
 import { keyRects, BOARD_UNITS } from './geometry.mjs';
 import { translateSlot, shiftLabel } from './translator.mjs';
+import { LAYER_ACTIONS } from './layer-actions.mjs';
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -19,6 +20,19 @@ let lastLayer = 0;
 // re-render at the new scale without re-invoking the backend.
 let lastLayout = null;
 let lastConfig = null;
+
+function decorateAction(element, slotName, slot, secondary = false) {
+  const isLayer = slot?.layer !== null && slot?.layer !== undefined;
+  if (!isLayer && (!secondary || !element.textContent)) return;
+  const action = LAYER_ACTIONS[slotName];
+  const kind = isLayer ? 'layer' : 'alternate';
+  element.classList.add(`${kind}-action`);
+  element.title = `${action.label}: ${isLayer ? `layer ${slot.layer}` : element.textContent}`;
+  const icon = document.createElement('span');
+  icon.className = `${kind}-action-icon ${action.icon}`;
+  icon.setAttribute('aria-hidden', 'true');
+  element.prepend(icon);
+}
 
 function computeLayout(config) {
   const pad = config.padding ?? 10;
@@ -42,7 +56,14 @@ export function renderBoard(layoutJson, config) {
   const rects = keyRects();
   const badge = document.createElement('div');
   badge.id = 'badge';
+  badge.style.top = `${Math.max(4, offY)}px`;
   board.appendChild(badge);
+  const offline = document.createElement('div');
+  offline.id = 'offline-indicator';
+  offline.textContent = 'OFFLINE';
+  offline.style.top = `${offY + (BOARD_UNITS.h * unit) / 2}px`;
+  offline.hidden = !document.body.classList.contains('offline');
+  board.appendChild(offline);
   for (const layer of layers) {
     const el = document.createElement('div');
     el.className = 'layer';
@@ -52,6 +73,8 @@ export function renderBoard(layoutJson, config) {
       const r = rects[i];
       const k = document.createElement('div');
       k.className = 'key';
+      if (i === 24 || i === 25) k.classList.add('thumb-left');
+      if (i === 50 || i === 51) k.classList.add('thumb-right');
       k.style.cssText = `left:${offX + r.x * unit}px;top:${offY + r.y * unit}px;width:${r.w * unit}px;height:${r.h * unit}px`;
       if (config.use_oryx_colors && key.glowColor) k.style.background = hexTint(key.glowColor);
       const custom = key.customLabel;
@@ -66,12 +89,18 @@ export function renderBoard(layoutJson, config) {
         holdPromoted = true;
       }
       tap.textContent = tapText;
+      decorateAction(tap, holdPromoted ? 'hold' : 'tap', holdPromoted ? key.hold : key.tap);
       k.appendChild(tap);
       const shifted = shiftLabel(key.tap ? { ...key.tap, customLabel: custom } : key.tap);
       if (shifted) {
         const s = document.createElement('span');
         s.className = 'shift';
         s.textContent = shifted;
+        s.title = `Shift: ${shifted}`;
+        const icon = document.createElement('span');
+        icon.className = 'shift-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        s.prepend(icon);
         k.appendChild(s);
       }
       for (const [slot, cls] of [['hold', 'hold'], ['doubleTap', 'dtap'], ['tapHold', 'thold']]) {
@@ -84,6 +113,7 @@ export function renderBoard(layoutJson, config) {
           const s = document.createElement('span');
           s.className = cls;
           s.textContent = translateSlot(key[slot]);
+          decorateAction(s, slot, key[slot], true);
           k.appendChild(s);
           if (key[slot].layer !== null && key[slot].layer !== undefined)
             k.dataset.triggersLayer = key[slot].layer;
@@ -100,15 +130,44 @@ function hexToRgba(hex, alpha) {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
 }
 
+function fontVars(style, prefix, config) {
+  const family = config[`${prefix}_font_family`];
+  const cssPrefix = prefix.replace(/_/g, '-');
+  style.setProperty(`--${cssPrefix}-font-family`, family ? JSON.stringify(family) : '-apple-system');
+  style.setProperty(`--${cssPrefix}-font-weight`, config[`${prefix}_font_bold`] ? '700' : '400');
+  style.setProperty(`--${cssPrefix}-font-style`, config[`${prefix}_font_italic`] ? 'italic' : 'normal');
+  style.setProperty(`--${cssPrefix}-font-ligatures`, config.font_ligatures === false ? 'none' : 'common-ligatures');
+}
+
 function applyTheme(config) {
+  document.body.classList.toggle('show-layer-action-icons', config.show_layer_action_icons ?? true);
+  document.body.classList.toggle('show-shift-icons', config.show_shift_icons ?? true);
+  document.body.classList.toggle('show-alternate-action-icons', config.show_alternate_action_icons ?? true);
   const st = document.documentElement.style;
   st.setProperty('--board-bg', hexToRgba(config.bg_color, config.opacity));
   st.setProperty('--char-opacity', config.char_opacity);
   st.setProperty('--text-color', config.text_color);
   st.setProperty('--legend-color', config.legend_color);
+  st.setProperty('--layer-name-color', config.text_color);
+  st.setProperty('--layer-name-border', hexToRgba(config.border_color, config.border_opacity));
+  st.setProperty('--layer-name-opacity', config.char_opacity);
+  st.setProperty('--shift-color', config.shift_color ?? '#ffffff');
+  st.setProperty('--alternate-color', config.alternate_color ?? '#ffffff');
+  st.setProperty('--shift-icon-scale', config.shift_icon_scale ?? 1);
+  st.setProperty('--alternate-action-icon-scale', config.alternate_action_icon_scale ?? 1);
   st.setProperty('--border-color', hexToRgba(config.border_color, config.border_opacity));
   st.setProperty('--border-width', `${config.border_width}px`);
   st.setProperty('--key-fill', hexToRgba(config.key_fill_color, config.key_fill_opacity));
+  st.setProperty('--base-outline', hexToRgba(config.base_outline_color, config.base_outline_opacity));
+  st.setProperty('--base-outline-width', `${config.base_outline_enabled ? config.base_outline_width : 0}px`);
+  st.setProperty('--grab-outline', hexToRgba(config.grab_outline_color, config.grab_outline_opacity));
+  st.setProperty('--grab-outline-width', `${config.grab_outline_enabled ? config.grab_outline_width : 0}px`);
+  st.setProperty('--key-font-scale', config.key_font_size);
+  st.setProperty('--legend-font-scale', config.legend_font_size);
+  st.setProperty('--layer-name-font-size', `${config.layer_name_font_size}px`);
+  fontVars(st, 'key', config);
+  fontVars(st, 'legend', config);
+  fontVars(st, 'layer_name', config);
 }
 
 function hexTint(hex) {
@@ -129,14 +188,16 @@ export function setActiveLayer(n) {
 
 export function setOffline(off) {
   document.body.classList.toggle('offline', off);
+  const indicator = document.getElementById('offline-indicator');
+  if (indicator) indicator.hidden = !off;
 }
 
-function showStartupError() {
+function showStartupError(error) {
   const board = document.getElementById('board');
   board.innerHTML = '';
   const msg = document.createElement('div');
   msg.id = 'startup-error';
-  msg.textContent = 'No layout — set Oryx URL in Settings';
+  msg.textContent = error ? `No layout — ${error}` : 'No layout — set Oryx URL in Settings';
   board.appendChild(msg);
 }
 
@@ -169,6 +230,7 @@ async function main() {
     renderBoard(await invoke('load_layout'), await invoke('get_config'));
     setActiveLayer(lastLayer);
   });
+  try { setOffline(!(await invoke('is_keymapp_online'))); } catch {}
   document.getElementById('board').addEventListener('mousedown', (e) => {
     if (document.body.classList.contains('grab')) {
       window.__TAURI__.window.getCurrentWindow().startDragging();
@@ -207,10 +269,11 @@ async function main() {
     setActiveLayer(lastLayer);
     if (layout.stale) document.getElementById('badge').textContent += ' (cached)';
   } catch (err) {
-    showStartupError();
+    console.error('layer-hud: startup layout failed:', err);
+    showStartupError(err);
   }
 }
 main().catch((err) => {
   console.error('layer-hud startup failed:', err);
-  showStartupError();
+  showStartupError(err);
 });

@@ -1,0 +1,13 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="3.75 3.75 8.5 8.5"
+  width="16"
+  height="16"
+>
+  <circle
+    cx="8"
+    cy="8"
+    r="2"
+    fill="currentColor"
+  />
+</svg>

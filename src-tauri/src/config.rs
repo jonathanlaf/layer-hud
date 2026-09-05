@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::Path;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -19,14 +20,46 @@ pub struct Config {
     pub border_width: f64,
     pub grab_combo: Vec<String>,
     pub use_oryx_colors: bool,
+    pub show_layer_action_icons: bool,
+    pub show_shift_icons: bool,
+    pub shift_icon_scale: f64,
+    pub show_alternate_action_icons: bool,
+    pub alternate_action_icon_scale: f64,
     pub key_fill_color: String,
     pub key_fill_opacity: f64,
     pub padding: f64,
     pub bg_color: String,
     pub text_color: String,
     pub legend_color: String,
+    pub shift_color: String,
+    pub alternate_color: String,
     pub border_color: String,
-    pub window: Option<WindowRect>,
+    pub base_outline_enabled: bool,
+    pub base_outline_color: String,
+    pub base_outline_opacity: f64,
+    pub base_outline_width: f64,
+    pub grab_outline_enabled: bool,
+    pub grab_outline_color: String,
+    pub grab_outline_opacity: f64,
+    pub grab_outline_width: f64,
+    pub key_font_family: String,
+    pub key_font_size: f64,
+    pub key_font_bold: bool,
+    pub key_font_italic: bool,
+    pub key_font_ligatures: bool,
+    pub legend_font_family: String,
+    pub legend_font_size: f64,
+    pub legend_font_bold: bool,
+    pub legend_font_italic: bool,
+    pub legend_font_ligatures: bool,
+    pub layer_name_font_family: String,
+    pub layer_name_font_size: f64,
+    pub layer_name_font_bold: bool,
+    pub layer_name_font_italic: bool,
+    pub layer_name_font_ligatures: bool,
+    pub font_ligatures: bool,
+    pub window_by_monitor: HashMap<String, WindowRect>,
+    pub last_monitor: Option<String>,
     pub last_refresh: Option<String>,
 }
 
@@ -40,14 +73,28 @@ impl Default for Config {
             border_width: 1.0,
             grab_combo: vec!["cmd".into(), "alt".into()],
             use_oryx_colors: true,
+            show_layer_action_icons: true,
+            show_shift_icons: true,
+            shift_icon_scale: 1.0,
+            show_alternate_action_icons: true,
+            alternate_action_icon_scale: 1.0,
             key_fill_color: "#ffffff".into(),
             key_fill_opacity: 0.0,
             padding: 10.0,
             bg_color: "#141418".into(),
             text_color: "#ffffff".into(),
             legend_color: "#ffffff".into(),
+            shift_color: "#ffffff".into(),
+            alternate_color: "#ffffff".into(),
             border_color: "#ffffff".into(),
-            window: None,
+            base_outline_enabled: true, base_outline_color: "#78b4ff".into(), base_outline_opacity: 0.6, base_outline_width: 2.0,
+            grab_outline_enabled: true, grab_outline_color: "#ffdc78".into(), grab_outline_opacity: 0.9, grab_outline_width: 2.0,
+            key_font_family: "".into(), key_font_size: 1.0, key_font_bold: false, key_font_italic: false, key_font_ligatures: false,
+            legend_font_family: "".into(), legend_font_size: 1.0, legend_font_bold: false, legend_font_italic: false, legend_font_ligatures: false,
+            layer_name_font_family: "".into(), layer_name_font_size: 11.0, layer_name_font_bold: false, layer_name_font_italic: false, layer_name_font_ligatures: false,
+            font_ligatures: true,
+            window_by_monitor: HashMap::new(),
+            last_monitor: None,
             last_refresh: None,
         }
     }
@@ -65,6 +112,15 @@ impl Config {
         self.border_width = self.border_width.clamp(0.0, 5.0);
         self.key_fill_opacity = self.key_fill_opacity.clamp(0.0, 1.0);
         self.padding = self.padding.clamp(0.0, 60.0);
+        self.shift_icon_scale = self.shift_icon_scale.clamp(0.5, 2.5);
+        self.alternate_action_icon_scale = self.alternate_action_icon_scale.clamp(0.5, 2.5);
+        self.base_outline_opacity = self.base_outline_opacity.clamp(0.0, 1.0);
+        self.base_outline_width = self.base_outline_width.clamp(0.0, 5.0);
+        self.grab_outline_opacity = self.grab_outline_opacity.clamp(0.0, 1.0);
+        self.grab_outline_width = self.grab_outline_width.clamp(0.0, 5.0);
+        self.key_font_size = self.key_font_size.clamp(0.5, 2.0);
+        self.legend_font_size = self.legend_font_size.clamp(0.5, 2.0);
+        self.layer_name_font_size = self.layer_name_font_size.clamp(8.0, 24.0);
     }
 }
 
@@ -111,7 +167,8 @@ mod tests {
         assert_eq!(c.opacity, 0.85);
         assert_eq!(c.grab_combo, vec!["cmd".to_string(), "alt".to_string()]);
         assert!(c.use_oryx_colors);
-        assert!(c.window.is_none());
+        assert!(c.window_by_monitor.is_empty());
+        assert!(c.last_monitor.is_none());
         assert_eq!(c.char_opacity, 1.0);
         assert_eq!(c.border_opacity, 0.35);
         assert_eq!(c.border_width, 1.0);
@@ -121,6 +178,8 @@ mod tests {
         assert_eq!(c.text_color, "#ffffff");
         assert_eq!(c.legend_color, "#ffffff");
         assert_eq!(c.border_color, "#ffffff");
+        assert_eq!(c.shift_icon_scale, 1.0);
+        assert_eq!(c.alternate_action_icon_scale, 1.0);
     }
 
     #[test]
@@ -147,6 +206,8 @@ mod tests {
             border_width: 999.0,
             key_fill_opacity: 2.0,
             padding: -10.0,
+            shift_icon_scale: 3.0,
+            alternate_action_icon_scale: 0.1,
             ..Config::default()
         };
         c.clamp();
@@ -156,6 +217,8 @@ mod tests {
         assert_eq!(c.border_width, 5.0);
         assert_eq!(c.key_fill_opacity, 1.0);
         assert_eq!(c.padding, 0.0);
+        assert_eq!(c.shift_icon_scale, 2.5);
+        assert_eq!(c.alternate_action_icon_scale, 0.5);
     }
 
     #[test]
@@ -176,7 +239,14 @@ mod tests {
         let path = dir.join("config.json");
         let mut c = Config::default();
         c.opacity = 0.5;
-        c.window = Some(WindowRect { x: 10.0, y: 20.0, w: 800.0, h: 300.0 });
+        c.legend_color = "#ffcc00".into();
+        c.shift_color = "#00ccff".into();
+        c.alternate_color = "#ff88cc".into();
+        c.show_layer_action_icons = true;
+        c.show_shift_icons = false;
+        c.show_alternate_action_icons = false;
+        c.window_by_monitor.insert("test".into(), WindowRect { x: 10.0, y: 20.0, w: 800.0, h: 300.0 });
+        c.last_monitor = Some("test".into());
         save(&path, &c).unwrap();
         assert_eq!(load(&path), c);
     }

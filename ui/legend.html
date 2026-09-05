@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Icon legend &amp; layers</title>
+  <link rel="stylesheet" href="legend.css" />
+</head>
+<body>
+  <h1>Icon legend &amp; layers</h1>
+  <section aria-labelledby="legend-title">
+    <h2 id="legend-title">Icon legend</h2>
+    <p class="hint">These actions can enter characters or switch layers.</p>
+    <div id="action-legend" class="card legend-list"></div>
+  </section>
+  <section aria-labelledby="layers-title">
+    <div class="heading"><h2 id="layers-title">Layers &amp; triggers</h2><button id="reload" type="button">Reload</button></div>
+    <p class="hint">How to reach each layer using the shortcuts in your layout.</p>
+    <p id="status" role="status">Loading layout…</p>
+    <ul id="layers" class="card"></ul>
+  </section>
+  <script type="module" src="legend.js"></script>
+</body>
+</html>
