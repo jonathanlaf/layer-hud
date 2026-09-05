@@ -71,6 +71,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Layer HUD ${{ github.ref_name }}'
+          generateReleaseNotes: true
           releaseDraft: true
           prerelease: false
 
