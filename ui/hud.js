@@ -21,6 +21,9 @@ const pressedKeys = new Set();
 // re-render at the new scale without re-invoking the backend.
 let lastLayout = null;
 let lastConfig = null;
+let toggleMacro = [];
+let toggleMacroBuffer = [];
+let toggleMacroLastAt = 0;
 
 function decorateAction(element, slotName, slot, secondary = false) {
   const isLayer = slot?.layer !== null && slot?.layer !== undefined;
@@ -144,6 +147,7 @@ function fontVars(style, prefix, config) {
 }
 
 function applyTheme(config) {
+  toggleMacro = Array.isArray(config.toggle_macro) ? config.toggle_macro.map(Number) : [];
   document.body.classList.toggle('show-layer-action-icons', config.show_layer_action_icons ?? true);
   document.body.classList.toggle('show-shift-icons', config.show_shift_icons ?? true);
   document.body.classList.toggle('show-alternate-action-icons', config.show_alternate_action_icons ?? true);
@@ -180,6 +184,33 @@ function applyTheme(config) {
   fontVars(st, 'key', config);
   fontVars(st, 'legend', config);
   fontVars(st, 'layer_name', config);
+}
+
+function applyOverlayVisibility(payload) {
+  const hidden = !!payload?.hidden;
+  document.body.classList.toggle('overlay-hidden', hidden);
+  if (!hidden) {
+    document.body.removeAttribute('data-hide-side');
+    return;
+  }
+  const side = ['left', 'right', 'top', 'bottom'].includes(payload.side) ? payload.side : 'right';
+  const reveal = Math.max(0, Math.min(1, Number(payload.reveal ?? 0.08)));
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const keyUnit = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--key-unit')) || 32;
+  const visibleX = reveal === 0 ? 1 : Math.min(width, Math.max(width * reveal, keyUnit * 0.94));
+  const visibleY = reveal === 0 ? 1 : Math.min(height, Math.max(height * reveal, keyUnit * 0.94));
+  const st = document.documentElement.style;
+  st.setProperty('--hide-clip-left', side === 'right' ? `${width - visibleX}px` : '0px');
+  st.setProperty('--hide-clip-right', side === 'left' ? `${width - visibleX}px` : '0px');
+  st.setProperty('--hide-clip-top', side === 'bottom' ? `${height - visibleY}px` : '0px');
+  st.setProperty('--hide-clip-bottom', side === 'top' ? `${height - visibleY}px` : '0px');
+  st.setProperty('--hide-visible-x', `${visibleX}px`);
+  st.setProperty('--hide-visible-y', `${visibleY}px`);
+  st.setProperty('--hide-outline-inset', `${Math.max(4, Number(lastConfig?.padding ?? 10))}px`);
+  st.setProperty('--hide-shift-x', side === 'left' ? `-${width - visibleX}px` : side === 'right' ? `${width - visibleX}px` : '0px');
+  st.setProperty('--hide-shift-y', side === 'top' ? `-${height - visibleY}px` : side === 'bottom' ? `${height - visibleY}px` : '0px');
+  document.body.dataset.hideSide = side;
 }
 
 function hexTint(hex) {
@@ -255,6 +286,17 @@ async function main() {
   await listen('key-event', (e) => {
     const index = voyagerIndex(Number(e.payload.col), Number(e.payload.row));
     if (index !== null) setKeyPressed(index, e.payload.pressed);
+    if (index !== null && e.payload.pressed && toggleMacro.length) {
+      const now = performance.now();
+      if (now - toggleMacroLastAt > 1000) toggleMacroBuffer = [];
+      toggleMacroLastAt = now;
+      toggleMacroBuffer.push(index);
+      if (toggleMacroBuffer.length > toggleMacro.length) toggleMacroBuffer.shift();
+      if (toggleMacroBuffer.length === toggleMacro.length && toggleMacroBuffer.every((key, i) => key === toggleMacro[i])) {
+        toggleMacroBuffer = [];
+        invoke('toggle_overlay_visibility').catch((err) => console.warn('layer-hud: toggle failed:', err));
+      }
+    }
   });
   await listen('keyboard-layout', async (e) => {
     // The keyboard identifies its Oryx layout over HID.  Refreshing here
@@ -270,9 +312,16 @@ async function main() {
   });
   await listen('keymapp-offline', () => setOffline(true));
   await listen('keymapp-online', () => setOffline(false));
-  await listen('grab-mode', (e) => document.body.classList.toggle('grab', e.payload.on));
+  const setGrabCue = (on) => {
+    document.body.classList.toggle('grab', on);
+    document.querySelectorAll('.resize-handle').forEach((handle) => {
+      handle.style.display = on ? 'block' : '';
+    });
+  };
+  await listen('grab-mode', (e) => setGrabCue(!!e.payload.on));
+  await listen('overlay-visibility', (e) => applyOverlayVisibility(e.payload));
   try {
-    document.body.classList.toggle('grab', await invoke('is_overlay_pinned'));
+    setGrabCue(await invoke('is_overlay_pinned'));
   } catch {}
   await listen('config-changed', async (e) => {
     applyTheme(e.payload);
@@ -316,12 +365,16 @@ async function main() {
         renderBoard(lastLayout, lastConfig);
         setActiveLayer(lastLayer);
       }
+      if (document.body.classList.contains('overlay-hidden')) {
+        applyOverlayVisibility({ hidden: true, side: document.body.dataset.hideSide, reveal: lastConfig?.hide_reveal });
+      }
     }, 100);
   });
 
   for (const dir of ['NorthWest', 'NorthEast', 'SouthWest', 'SouthEast']) {
     const h = document.createElement('div');
     h.className = `resize-handle ${dir.toLowerCase()}`;
+    h.style.display = document.body.classList.contains('grab') ? 'block' : '';
     h.addEventListener('mousedown', (e) => {
       if (!document.body.classList.contains('grab')) return;
       e.stopPropagation();

@@ -67,6 +67,9 @@ fn main() {
             if window.label() != "overlay" {
                 return;
             }
+            if window.app_handle().state::<state::HudState>().overlay_hidden.load(std::sync::atomic::Ordering::SeqCst) {
+                return;
+            }
             if matches!(event, tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_)) {
                 let app = window.app_handle();
                 let scale = window.scale_factor().unwrap_or(1.0);
@@ -115,6 +118,7 @@ fn main() {
             oryx::reset_window_positions,
             oryx::recalculate_window_geometry,
             oryx::is_overlay_pinned,
+            oryx::toggle_overlay_visibility,
             oryx::is_keymapp_online,
             oryx::export_config,
             oryx::import_config,

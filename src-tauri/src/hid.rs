@@ -21,6 +21,18 @@ const EVT_LAYER: u8 = 0x05;
 const EVT_KEYDOWN: u8 = 0x06;
 const EVT_KEYUP: u8 = 0x07;
 
+fn matrix_index(col: usize, row: usize) -> Option<u8> {
+    const MAP: [[i16; 7]; 12] = [
+        [-1, 0, 1, 2, 3, 4, 5], [-1, 6, 7, 8, 9, 10, 11],
+        [-1, 12, 13, 14, 15, 16, 17], [-1, 18, 19, 20, 21, 22, -1],
+        [-1, -1, -1, -1, 23, -1, -1], [24, 25, -1, -1, -1, -1, -1],
+        [26, 27, 28, 29, 30, 31, -1], [32, 33, 34, 35, 36, 37, -1],
+        [38, 39, 40, 41, 42, 43, -1], [-1, 45, 46, 47, 48, 49, -1],
+        [-1, -1, 44, -1, -1, -1, -1], [-1, -1, -1, -1, -1, 50, 51],
+    ];
+    MAP.get(row)?.get(col).copied().filter(|i| *i >= 0).map(|i| i as u8)
+}
+
 fn find_device(api: &HidApi) -> Option<HidDevice> {
     api.device_list()
         .find(|info| {
@@ -94,6 +106,7 @@ fn handle_packet(app: &AppHandle, packet: &[u8]) {
                 json!({
                     "col": data[1],
                     "row": data[2],
+                    "index": matrix_index(data[1] as usize, data[2] as usize),
                     "pressed": data[0] == EVT_KEYDOWN,
                 }),
             );

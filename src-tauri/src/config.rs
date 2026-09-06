@@ -20,6 +20,10 @@ pub struct Config {
     pub border_width: f64,
     pub grab_combo: Vec<String>,
     pub overlay_pinned: bool,
+    pub toggle_macro: Vec<u8>,
+    pub hide_side: String,
+    pub hide_reveal: f64,
+    pub hide_animation_ms: f64,
     pub use_oryx_colors: bool,
     pub show_layer_action_icons: bool,
     pub show_shift_icons: bool,
@@ -91,6 +95,10 @@ impl Default for Config {
             border_width: 1.0,
             grab_combo: vec!["cmd".into(), "alt".into()],
             overlay_pinned: false,
+            toggle_macro: Vec::new(),
+            hide_side: "right".into(),
+            hide_reveal: 0.08,
+            hide_animation_ms: 220.0,
             use_oryx_colors: true,
             show_layer_action_icons: true,
             show_shift_icons: true,
@@ -161,6 +169,8 @@ impl Config {
         self.pressed_key_shadow_opacity = self.pressed_key_shadow_opacity.clamp(0.0, 1.0);
         self.key_spacing = self.key_spacing.clamp(0.0, 0.25);
         self.keyboard_halves_distance = self.keyboard_halves_distance.clamp(0.25, 20.0);
+        self.hide_reveal = self.hide_reveal.clamp(0.0, 1.0);
+        self.hide_animation_ms = self.hide_animation_ms.clamp(0.0, 1000.0);
         self.key_font_size = self.key_font_size.clamp(0.5, 2.0);
         self.legend_font_size = self.legend_font_size.clamp(0.5, 2.0);
         self.layer_name_font_size = self.layer_name_font_size.clamp(8.0, 24.0);

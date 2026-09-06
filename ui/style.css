@@ -2,6 +2,14 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
 #board { color: var(--text-color, #fff); font: 13px -apple-system, sans-serif;
          background: var(--board-bg, rgba(20, 20, 24, 0.85));
          border-radius: 12px; position: fixed; inset: 0; overflow: hidden; }
+body.overlay-hidden #board { clip-path: inset(var(--hide-clip-top, 0px) var(--hide-clip-right, 0px) var(--hide-clip-bottom, 0px) var(--hide-clip-left, 0px)); }
+body.overlay-hidden #board .layer { transform: translate(var(--hide-shift-x, 0px), var(--hide-shift-y, 0px)); }
+body.overlay-hidden #board #badge,
+body.overlay-hidden #board #offline-indicator { visibility: hidden; }
+body.overlay-hidden[data-hide-side="left"] #board { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+body.overlay-hidden[data-hide-side="right"] #board { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+body.overlay-hidden[data-hide-side="top"] #board { border-top-left-radius: 0; border-top-right-radius: 0; }
+body.overlay-hidden[data-hide-side="bottom"] #board { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
 .layer { display: none; }
 .layer.active { display: block; }
 .key { position: absolute; border: var(--border-width, 1px) solid var(--border-color, rgba(255,255,255,0.35)); border-radius: var(--key-border-radius, 7px);
@@ -53,10 +61,80 @@ body.offline #badge { opacity: calc(var(--layer-name-opacity, 1) * 0.4); }
 .key.thumb-left { transform: rotate(15deg); transform-origin: center; }
 .key.thumb-right { transform: rotate(-15deg); transform-origin: center; }
 body.grab #board { outline: var(--grab-outline-width, 2px) solid var(--grab-outline, rgba(255,220,120,0.9)); outline-offset: -2px; }
+/* When clipped, the normal outline belongs to the hidden full-size board.
+   Re-draw only the visible strip so its exposed edge remains clear. */
+body.overlay-hidden.grab #board { outline: none; }
+body.overlay-hidden.grab #board::after {
+  content: "";
+  position: absolute;
+  z-index: 20;
+  pointer-events: none;
+  box-sizing: border-box;
+  border: var(--grab-outline-width, 2px) solid var(--grab-outline, rgba(255,220,120,0.9));
+}
+body.overlay-hidden.grab[data-hide-side="left"] #board::after {
+  left: 0; top: 0; bottom: 0; width: var(--hide-visible-x);
+  border-left: none;
+  border-radius: 0 12px 12px 0;
+}
+body.overlay-hidden.grab[data-hide-side="right"] #board::after {
+  right: 0; top: 0; bottom: 0; width: var(--hide-visible-x);
+  border-right: none;
+  border-radius: 12px 0 0 12px;
+}
+body.overlay-hidden.grab[data-hide-side="top"] #board::after {
+  left: 0; right: 0; top: 0; height: var(--hide-visible-y);
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+}
+body.overlay-hidden.grab[data-hide-side="bottom"] #board::after {
+  left: 0; right: 0; bottom: 0; height: var(--hide-visible-y);
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+}
 .resize-handle { display: none; position: fixed; width: 18px; height: 18px; z-index: 10;
-                 border: 2px solid rgba(255,220,120,0.9); }
+                 border: var(--grab-outline-width, 2px) solid var(--grab-outline, rgba(255,220,120,0.9)); }
 body.grab .resize-handle { display: block; }
 .resize-handle.northwest { top: 5px; left: 5px; border-right: none; border-bottom: none; cursor: nwse-resize; }
 .resize-handle.northeast { top: 5px; right: 5px; border-left: none; border-bottom: none; cursor: nesw-resize; }
 .resize-handle.southwest { bottom: 5px; left: 5px; border-right: none; border-top: none; cursor: nesw-resize; }
 .resize-handle.southeast { bottom: 5px; right: 5px; border-left: none; border-top: none; cursor: nwse-resize; }
+/* Hidden overlays only expose resize handles while grab mode is active. */
+body.overlay-hidden:not(.grab) .resize-handle { display: none !important; }
+body.overlay-hidden.grab .resize-handle {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 100 !important;
+  pointer-events: auto !important;
+}
+
+/* Keep only the handles on the side that remains visible. */
+body.overlay-hidden.grab[data-hide-side="left"] .resize-handle.northwest,
+body.overlay-hidden.grab[data-hide-side="left"] .resize-handle.southwest,
+body.overlay-hidden.grab[data-hide-side="right"] .resize-handle.northeast,
+body.overlay-hidden.grab[data-hide-side="right"] .resize-handle.southeast,
+body.overlay-hidden.grab[data-hide-side="top"] .resize-handle.northwest,
+body.overlay-hidden.grab[data-hide-side="top"] .resize-handle.northeast,
+body.overlay-hidden.grab[data-hide-side="bottom"] .resize-handle.southwest,
+body.overlay-hidden.grab[data-hide-side="bottom"] .resize-handle.southeast {
+  display: none !important;
+}
+
+/* Position the surviving handles at the clipped keyboard edge. */
+body.overlay-hidden.grab[data-hide-side="left"] .resize-handle.northeast,
+body.overlay-hidden.grab[data-hide-side="left"] .resize-handle.southeast {
+  left: calc(var(--hide-visible-x) - 28px); right: auto;
+}
+body.overlay-hidden.grab[data-hide-side="right"] .resize-handle.northwest,
+body.overlay-hidden.grab[data-hide-side="right"] .resize-handle.southwest {
+  left: calc(100% - var(--hide-visible-x) + 10px); right: auto;
+}
+body.overlay-hidden.grab[data-hide-side="top"] .resize-handle.southwest,
+body.overlay-hidden.grab[data-hide-side="top"] .resize-handle.southeast {
+  top: calc(var(--hide-visible-y) - 28px); bottom: auto;
+}
+body.overlay-hidden.grab[data-hide-side="bottom"] .resize-handle.northwest,
+body.overlay-hidden.grab[data-hide-side="bottom"] .resize-handle.northeast {
+  top: calc(100% - var(--hide-visible-y) + 10px); bottom: auto;
+}

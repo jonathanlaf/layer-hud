@@ -204,6 +204,11 @@
     <div class="row">
       <span class="hint" id="record-hint">Hold to move and resize the overlay</span>
     </div>
+    <div class="row">
+      <label>Toggle overlay macro</label>
+      <span><span id="toggle-macro-display" class="hint">Not configured</span> <button id="toggle-macro-record" type="button">Record</button> <button id="toggle-macro-stop" type="button" disabled>Stop</button></span>
+    </div>
+    <div class="row"><span class="hint">Record key presses in order, including repeated taps or combinations.</span></div>
   </div>
 
   <h2>Position</h2>
@@ -230,6 +235,9 @@
       <input type="range" id="keyboard-halves-distance" min="0.25" max="20" step="0.05" />
       <input class="val" id="keyboard-halves-distance-val" inputmode="decimal" aria-label="Keyboard halves distance value" />
     </div>
+    <div class="row"><label for="hide-side">Hidden edge</label><select id="hide-side"><option value="left">Left</option><option value="right">Right</option><option value="top">Top</option><option value="bottom">Bottom</option></select></div>
+    <div class="row"><label for="hide-reveal">Visible when hidden</label><input type="range" id="hide-reveal" min="0" max="1" step="0.01" /><input class="val" id="hide-reveal-val" inputmode="decimal" /></div>
+    <div class="row"><label for="hide-animation-ms">Hide/show animation (ms)</label><input type="range" id="hide-animation-ms" min="0" max="1000" step="20" /><input class="val" id="hide-animation-ms-val" inputmode="decimal" /></div>
   </div>
 
   <h2 data-tab-section="layout">Settings data</h2>

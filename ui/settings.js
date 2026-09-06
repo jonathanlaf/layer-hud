@@ -1,4 +1,5 @@
 const { invoke } = window.__TAURI__.core;
+const { listen } = window.__TAURI__.event;
 
 let cfg = await invoke('get_config');
 const $ = (id) => document.getElementById(id);
@@ -82,6 +83,10 @@ $('pressed-key-shadow').checked = cfg.show_pressed_key_shadow;
 $('base-outline-enabled').checked = cfg.base_outline_enabled;
 $('grab-outline-enabled').checked = cfg.grab_outline_enabled;
 $('combo-display').textContent = comboText(cfg.grab_combo);
+$('hide-side').value = cfg.hide_side;
+
+const macroLabel = (macro) => macro?.length ? macro.map((index) => `Key ${index}`).join(' → ') : 'Not configured';
+$('toggle-macro-display').textContent = macroLabel(cfg.toggle_macro);
 
 // Serialized so rapid-fire commits (e.g. fast typing, each one a separate
 // read-modify-write) can never resolve out of order and let a stale value
@@ -212,6 +217,8 @@ for (const [id, field] of [
   ['pressed-key-shadow-opacity', 'pressed_key_shadow_opacity'],
   ['key-spacing', 'key_spacing'],
   ['keyboard-halves-distance', 'keyboard_halves_distance'],
+  ['hide-reveal', 'hide_reveal'],
+  ['hide-animation-ms', 'hide_animation_ms'],
 ]) bindNumeric(id, field);
 
 for (const prefix of ['key', 'legend', 'layer_name']) {
@@ -239,6 +246,30 @@ $('key-shadows').addEventListener('change', (e) => commit('show_key_shadows', e.
 $('pressed-key-shadow').addEventListener('change', (e) => commit('show_pressed_key_shadow', e.target.checked));
 $('base-outline-enabled').addEventListener('change', (e) => commit('base_outline_enabled', e.target.checked));
 $('grab-outline-enabled').addEventListener('change', (e) => commit('grab_outline_enabled', e.target.checked));
+$('hide-side').addEventListener('change', (e) => commit('hide_side', e.target.value));
+
+let toggleMacroRecording = false;
+let recordedToggleMacro = [];
+$('toggle-macro-record').addEventListener('click', () => {
+  toggleMacroRecording = true;
+  recordedToggleMacro = [];
+  $('toggle-macro-display').textContent = 'Recording…';
+  $('toggle-macro-record').disabled = true;
+  $('toggle-macro-stop').disabled = false;
+});
+$('toggle-macro-stop').addEventListener('click', async () => {
+  toggleMacroRecording = false;
+  cfg.toggle_macro = recordedToggleMacro;
+  await push();
+  $('toggle-macro-display').textContent = macroLabel(cfg.toggle_macro);
+  $('toggle-macro-record').disabled = false;
+  $('toggle-macro-stop').disabled = true;
+});
+await listen('key-event', (event) => {
+  if (!toggleMacroRecording || !event.payload?.pressed || event.payload.index == null) return;
+  recordedToggleMacro.push(Number(event.payload.index));
+  $('toggle-macro-display').textContent = macroLabel(recordedToggleMacro);
+});
 
 try {
   $('autostart').checked = await invoke('plugin:autostart|is_enabled');

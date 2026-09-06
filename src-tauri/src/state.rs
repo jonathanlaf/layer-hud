@@ -1,5 +1,6 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
+use crate::config::WindowRect;
 
 /// Shared HUD state so the tray "pin" handler and the combo-grab poll loop
 /// agree on whether the overlay should currently accept mouse events, and so
@@ -15,6 +16,8 @@ pub struct HudState {
     /// from disk on every tick just to check a value that rarely changes.
     pub grab_combo: Mutex<Vec<String>>,
     pub keymapp_online: AtomicBool,
+    pub overlay_hidden: AtomicBool,
+    pub hidden_rect: Mutex<Option<WindowRect>>,
 }
 
 impl HudState {
@@ -24,6 +27,8 @@ impl HudState {
             config_lock: Mutex::new(()),
             grab_combo: Mutex::new(Vec::new()),
             keymapp_online: AtomicBool::new(true),
+            overlay_hidden: AtomicBool::new(false),
+            hidden_rect: Mutex::new(None),
         }
     }
 }
