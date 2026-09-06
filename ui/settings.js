@@ -17,7 +17,7 @@ async function resetAllSettings() {
 window.resetAllSettings = resetAllSettings;
 
 const tabSections = new Map([
-  ['layout', 'General'], ['appearance', 'Appearance'], ['colors', 'Colors'], ['fonts', 'Fonts'],
+  ['layout', 'General'], ['appearance', 'Appearance'], ['fonts', 'Fonts'],
   ['interaction', 'Interaction'], ['position', 'Position'],
 ]);
 const headings = [...document.querySelectorAll('h2')];
@@ -60,7 +60,6 @@ const MOD_LABELS = { cmd: '⌘', alt: '⌥', ctrl: '⌃', shift: '⇧' };
 const MOD_ORDER = ['cmd', 'alt', 'ctrl', 'shift'];
 const comboText = (arr) => arr.map((m) => MOD_LABELS[m]).join('') || '—';
 
-$('oryx').value = cfg.oryx_url;
 $('bg-color').value = cfg.bg_color;
 $('key-fill-color').value = cfg.key_fill_color;
 $('text-color').value = cfg.text_color;
@@ -68,10 +67,20 @@ $('legend-color').value = cfg.legend_color;
 $('shift-color').value = cfg.shift_color;
 $('alternate-color').value = cfg.alternate_color;
 $('border-color').value = cfg.border_color;
+$('pressed-key-color').value = cfg.pressed_key_color;
+$('pressed-key-border-color').value = cfg.pressed_key_border_color;
+$('key-shadow-color').value = cfg.key_shadow_color;
+$('pressed-key-shadow-color').value = cfg.pressed_key_shadow_color;
+$('base-outline-color').value = cfg.base_outline_color;
+$('grab-outline-color').value = cfg.grab_outline_color;
 $('colors-toggle').checked = cfg.use_oryx_colors;
 $('layer-action-icons').checked = cfg.show_layer_action_icons;
 $('shift-icons').checked = cfg.show_shift_icons;
 $('alternate-action-icons').checked = cfg.show_alternate_action_icons;
+$('key-shadows').checked = cfg.show_key_shadows;
+$('pressed-key-shadow').checked = cfg.show_pressed_key_shadow;
+$('base-outline-enabled').checked = cfg.base_outline_enabled;
+$('grab-outline-enabled').checked = cfg.grab_outline_enabled;
 $('combo-display').textContent = comboText(cfg.grab_combo);
 
 // Serialized so rapid-fire commits (e.g. fast typing, each one a separate
@@ -109,6 +118,12 @@ bind('legend-color', 'legend_color');
 bind('shift-color', 'shift_color');
 bind('alternate-color', 'alternate_color');
 bind('border-color', 'border_color');
+bind('pressed-key-color', 'pressed_key_color');
+bind('pressed-key-border-color', 'pressed_key_border_color');
+bind('key-shadow-color', 'key_shadow_color');
+bind('pressed-key-shadow-color', 'pressed_key_shadow_color');
+bind('base-outline-color', 'base_outline_color');
+bind('grab-outline-color', 'grab_outline_color');
 
 // Numeric settings: slider + manual text entry, kept in sync both ways.
 // Every keystroke commits immediately (like the slider) so a value typed
@@ -184,6 +199,18 @@ for (const [id, field] of [
   ['key-font-size', 'key_font_size'],
   ['legend-font-size', 'legend_font_size'],
   ['layer-name-font-size', 'layer_name_font_size'],
+  ['pressed-key-fill-opacity', 'pressed_key_fill_opacity'],
+  ['pressed-key-border-opacity', 'pressed_key_border_opacity'],
+  ['pressed-key-border-width', 'pressed_key_border_width'],
+  ['base-outline-opacity', 'base_outline_opacity'],
+  ['base-outline-width', 'base_outline_width'],
+  ['grab-outline-opacity', 'grab_outline_opacity'],
+  ['grab-outline-width', 'grab_outline_width'],
+  ['key-border-radius', 'key_border_radius'],
+  ['pill-border-radius', 'pill_border_radius'],
+  ['key-shadow-opacity', 'key_shadow_opacity'],
+  ['pressed-key-shadow-opacity', 'pressed_key_shadow_opacity'],
+  ['key-spacing', 'key_spacing'],
 ]) bindNumeric(id, field);
 
 for (const prefix of ['key', 'legend', 'layer_name']) {
@@ -207,6 +234,10 @@ $('shift-icons').addEventListener('change', (e) => {
 $('alternate-action-icons').addEventListener('change', (e) => {
   commit('show_alternate_action_icons', e.target.checked);
 });
+$('key-shadows').addEventListener('change', (e) => commit('show_key_shadows', e.target.checked));
+$('pressed-key-shadow').addEventListener('change', (e) => commit('show_pressed_key_shadow', e.target.checked));
+$('base-outline-enabled').addEventListener('change', (e) => commit('base_outline_enabled', e.target.checked));
+$('grab-outline-enabled').addEventListener('change', (e) => commit('grab_outline_enabled', e.target.checked));
 
 try {
   $('autostart').checked = await invoke('plugin:autostart|is_enabled');
@@ -292,20 +323,4 @@ document.addEventListener('click', (event) => {
     event.preventDefault();
     if (confirm('Reset all settings to defaults?')) resetAllSettings();
   }
-});
-
-$('apply-url').addEventListener('click', async () => {
-  $('url-status-row').hidden = false;
-  $('url-status').textContent = '…';
-  $('url-status').className = 'status';
-  try {
-    const res = await invoke('refresh_layout', { url: $('oryx').value });
-    cfg = await invoke('get_config');
-    $('url-status').textContent = res.stale ? 'offline — using cache' : 'applied';
-    $('url-status').className = res.stale ? 'status error' : 'status ok';
-  } catch (err) {
-    $('url-status').textContent = String(err);
-    $('url-status').className = 'status error';
-  }
-  $('url-status-row').hidden = false;
 });

@@ -2,10 +2,10 @@
 
 mod config;
 mod grab;
+mod hid;
 mod oryx;
 mod state;
 mod tray;
-mod watcher;
 
 use tauri::Manager;
 
@@ -57,7 +57,7 @@ fn main() {
                 }
             }
 
-            watcher::spawn(app.handle().clone());
+            hid::spawn(app.handle().clone());
             grab::spawn(app.handle().clone());
             tray::build(app.handle())?;
             Ok(())

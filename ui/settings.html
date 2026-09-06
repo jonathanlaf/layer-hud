@@ -81,20 +81,12 @@
   <nav class="tabs" aria-label="Settings sections">
     <button class="tab-button active" type="button" data-tab="layout">General</button>
     <button class="tab-button" type="button" data-tab="appearance">Appearance</button>
-    <button class="tab-button" type="button" data-tab="colors">Colors</button>
     <button class="tab-button" type="button" data-tab="fonts">Fonts</button>
     <button class="tab-button" type="button" data-tab="interaction">Interaction</button>
     <button class="tab-button" type="button" data-tab="position">Position</button>
   </nav>
   <h2>General</h2>
   <div class="card" data-tab-section="layout">
-    <div class="row">
-      <input type="text" id="oryx" placeholder="Oryx layout URL or hash" />
-      <button id="apply-url">Fetch</button>
-    </div>
-    <div class="row" id="url-status-row" hidden>
-      <span class="status" id="url-status"></span>
-    </div>
     <div class="row">
       <label for="colors-toggle">Use Oryx layer colors</label>
       <input type="checkbox" id="colors-toggle" />
@@ -112,7 +104,7 @@
       <input type="checkbox" id="layer-action-icons" />
     </div>
     <div class="row">
-      <span class="hint">Tap, hold, double-tap, and tap-then-hold shortcuts from your layout.</span>
+      <span class="hint">Icons for layer-trigger keys only (tap, hold, and layer actions).</span>
     </div>
     <div class="row">
       <label for="shift-icons">Show Shift icons</label>
@@ -124,7 +116,7 @@
       <input class="val" id="shift-icon-scale-val" inputmode="decimal" aria-label="Shift icon size percentage" />
     </div>
     <div class="row">
-      <label for="alternate-action-icons">Show alternate action icons</label>
+      <label for="alternate-action-icons">Show alternate character action icons</label>
       <input type="checkbox" id="alternate-action-icons" />
     </div>
     <div class="row">
@@ -133,8 +125,13 @@
       <input class="val" id="alternate-action-icon-scale-val" inputmode="decimal" aria-label="Alternate action icon size percentage" />
     </div>
     <div class="row">
-      <span class="hint">Icons for characters and actions reached by double-tap, hold, or tap-and-hold.</span>
+      <span class="hint">Icons for alternate characters reached by double-tap, hold, or tap-and-hold.</span>
     </div>
+    <div class="row"><label for="key-shadows">Show key shadows</label><input type="checkbox" id="key-shadows" /></div>
+    <div class="row"><label for="pressed-key-shadow">Show pressed-key shadow</label><input type="checkbox" id="pressed-key-shadow" /></div>
+    <div class="row"><label for="key-shadow-opacity">Key shadow opacity</label><input type="range" id="key-shadow-opacity" min="0" max="1" step="0.05" /><input class="val" id="key-shadow-opacity-val" inputmode="decimal" /></div>
+    <div class="row"><label for="pressed-key-shadow-opacity">Pressed shadow opacity</label><input type="range" id="pressed-key-shadow-opacity" min="0" max="1" step="0.05" /><input class="val" id="pressed-key-shadow-opacity-val" inputmode="decimal" /></div>
+    <div class="row"><label for="key-spacing">Key spacing</label><input type="range" id="key-spacing" min="0" max="0.25" step="0.01" /><input class="val" id="key-spacing-val" inputmode="decimal" /></div>
     <div class="row">
       <label>Background opacity</label>
       <input type="range" id="opacity" min="0" max="1" step="0.05" />
@@ -146,29 +143,14 @@
       <input class="val" id="char-opacity-val" inputmode="decimal" aria-label="Char opacity value" />
     </div>
     <div class="row">
-      <label>Border opacity</label>
-      <input type="range" id="border-opacity" min="0" max="1" step="0.05" />
-      <input class="val" id="border-opacity-val" inputmode="decimal" aria-label="Border opacity value" />
-    </div>
-    <div class="row">
-      <label>Fill opacity</label>
-      <input type="range" id="key-fill-opacity" min="0" max="1" step="0.05" />
-      <input class="val" id="key-fill-opacity-val" inputmode="decimal" aria-label="Fill opacity value" />
-    </div>
-    <div class="row">
-      <label>Border thickness</label>
-      <input type="range" id="border-width" min="0" max="5" step="0.5" />
-      <input class="val" id="border-width-val" inputmode="decimal" aria-label="Border thickness value" />
-    </div>
-    <div class="row">
       <label>Padding</label>
       <input type="range" id="padding" min="0" max="60" step="2" />
       <input class="val" id="padding-val" inputmode="decimal" aria-label="Padding value" />
     </div>
   </div>
 
-  <h2>Colors</h2>
-  <div class="card colors-grid">
+  <h3>Colors</h3>
+  <div class="card colors-grid" data-tab-section="appearance">
     <div class="color-row"><input type="color" id="bg-color" /><label for="bg-color">Background<small>Overlay surface</small></label></div>
     <div class="color-row"><input type="color" id="key-fill-color" /><label for="key-fill-color">Key fill<small>Inside each key</small></label></div>
     <div class="color-row"><input type="color" id="text-color" /><label for="text-color">Text<small>Main key characters</small></label></div>
@@ -176,6 +158,26 @@
     <div class="color-row"><input type="color" id="shift-color" aria-label="Shift character color" /><label for="shift-color">Shift characters<small>Alternate characters from Shift</small></label></div>
     <div class="color-row"><input type="color" id="alternate-color" aria-label="Alternate character color" /><label for="alternate-color">Alternate characters<small>Double-tap, hold, or tap-and-hold results</small></label></div>
     <div class="color-row"><input type="color" id="border-color" /><label for="border-color">Border<small>Key outlines</small></label></div>
+    <div class="color-row"><input type="color" id="pressed-key-color" /><label for="pressed-key-color">Pressed key<small>Active key highlight</small></label></div>
+    <div class="color-row"><input type="color" id="pressed-key-border-color" /><label for="pressed-key-border-color">Pressed key border<small>Active key outline</small></label></div>
+    <div class="color-row"><input type="color" id="key-shadow-color" /><label for="key-shadow-color">Key shadow<small>Shadow for all keys</small></label></div>
+    <div class="color-row"><input type="color" id="pressed-key-shadow-color" /><label for="pressed-key-shadow-color">Pressed key shadow<small>Shadow for active keys</small></label></div>
+    <div class="color-row"><input type="color" id="base-outline-color" /><label for="base-outline-color">Layer outline<small>Non-base layer outline</small></label></div>
+    <div class="color-row"><input type="color" id="grab-outline-color" /><label for="grab-outline-color">Grab outline<small>Move/resize mode outline</small></label></div>
+    <div class="row"><label for="key-fill-opacity">Key fill opacity</label><input type="range" id="key-fill-opacity" min="0" max="1" step="0.05" /><input class="val" id="key-fill-opacity-val" inputmode="decimal" aria-label="Key fill opacity value" /></div>
+    <div class="row"><label for="border-opacity">Key border opacity</label><input type="range" id="border-opacity" min="0" max="1" step="0.05" /><input class="val" id="border-opacity-val" inputmode="decimal" aria-label="Key border opacity value" /></div>
+    <div class="row"><label for="border-width">Key border thickness</label><input type="range" id="border-width" min="0" max="5" step="0.5" /><input class="val" id="border-width-val" inputmode="decimal" aria-label="Key border thickness value" /></div>
+    <div class="row"><label for="base-outline-enabled">Show layer outline</label><input type="checkbox" id="base-outline-enabled" /></div>
+    <div class="row"><label for="grab-outline-enabled">Show grab outline</label><input type="checkbox" id="grab-outline-enabled" /></div>
+    <div class="row"><label for="pressed-key-fill-opacity">Pressed fill opacity</label><input type="range" id="pressed-key-fill-opacity" min="0" max="1" step="0.05" /><input class="val" id="pressed-key-fill-opacity-val" inputmode="decimal" /></div>
+    <div class="row"><label for="pressed-key-border-opacity">Pressed border opacity</label><input type="range" id="pressed-key-border-opacity" min="0" max="1" step="0.05" /><input class="val" id="pressed-key-border-opacity-val" inputmode="decimal" /></div>
+    <div class="row"><label for="pressed-key-border-width">Pressed border thickness</label><input type="range" id="pressed-key-border-width" min="0" max="5" step="0.5" /><input class="val" id="pressed-key-border-width-val" inputmode="decimal" /></div>
+    <div class="row"><label for="base-outline-opacity">Layer outline opacity</label><input type="range" id="base-outline-opacity" min="0" max="1" step="0.05" /><input class="val" id="base-outline-opacity-val" inputmode="decimal" /></div>
+    <div class="row"><label for="base-outline-width">Layer outline thickness</label><input type="range" id="base-outline-width" min="0" max="5" step="0.5" /><input class="val" id="base-outline-width-val" inputmode="decimal" /></div>
+    <div class="row"><label for="grab-outline-opacity">Grab outline opacity</label><input type="range" id="grab-outline-opacity" min="0" max="1" step="0.05" /><input class="val" id="grab-outline-opacity-val" inputmode="decimal" /></div>
+    <div class="row"><label for="grab-outline-width">Grab outline thickness</label><input type="range" id="grab-outline-width" min="0" max="5" step="0.5" /><input class="val" id="grab-outline-width-val" inputmode="decimal" /></div>
+    <div class="row"><label for="key-border-radius">Key corner radius</label><input type="range" id="key-border-radius" min="0" max="30" step="1" /><input class="val" id="key-border-radius-val" inputmode="decimal" /></div>
+    <div class="row"><label for="pill-border-radius">Layer/offline pill radius</label><input type="range" id="pill-border-radius" min="0" max="999" step="1" /><input class="val" id="pill-border-radius-val" inputmode="decimal" /></div>
   </div>
 
   <h2>Fonts</h2>

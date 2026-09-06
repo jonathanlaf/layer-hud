@@ -4,8 +4,8 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
          border-radius: 12px; position: fixed; inset: 0; overflow: hidden; }
 .layer { display: none; }
 .layer.active { display: block; }
-.key { position: absolute; border: var(--border-width, 1px) solid var(--border-color, rgba(255,255,255,0.35)); border-radius: 7px;
-       box-sizing: border-box; text-align: center; background: var(--key-fill, transparent); }
+.key { position: absolute; border: var(--border-width, 1px) solid var(--border-color, rgba(255,255,255,0.35)); border-radius: var(--key-border-radius, 7px);
+       box-sizing: border-box; text-align: center; background: var(--key-fill, transparent); box-shadow: var(--key-shadow, none); }
 .key .tap { position: absolute; inset: 0; display: flex; align-items: center;
             justify-content: center; font-size: calc(var(--key-unit, 62px) * 0.258);
             color: var(--text-color, #fff); opacity: var(--char-opacity, 1); }
@@ -20,6 +20,7 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
 .key .alternate-action { color: var(--alternate-color, #fff); }
 .key .layer-action { color: var(--legend-color, #fff); }
 .key.trigger-active { border-color: #ffd479; box-shadow: 0 0 6px #ffd479; }
+.key.pressed { border: var(--pressed-key-border-width, 1px) solid var(--pressed-key-border, rgba(122,215,255,0.85)); box-shadow: var(--pressed-key-shadow, none); background: var(--pressed-key-fill, rgba(122,215,255,0.45)); }
 .layer-action-icon, .alternate-action-icon, .shift-icon { display: none; }
 body.show-layer-action-icons .layer-action-icon,
 body.show-alternate-action-icons .alternate-action-icon,
@@ -40,18 +41,18 @@ body.show-shift-icons .shift-icon {
   height: calc(0.85em * var(--shift-icon-scale, 1)); vertical-align: baseline;
 }
 .shift-icon { --action-icon: url('icons/shift.svg'); margin-right: 0.15em; }
-#badge { position: absolute; top: 7px; left: 50%; transform: translateX(-50%); z-index: 3; font-size: var(--layer-name-font-size, 11px); color: var(--layer-name-color, #fff); opacity: var(--layer-name-opacity, 1); padding: 3px 10px; border-radius: 999px; background: var(--key-fill, transparent); border: 1px solid var(--layer-name-border, rgba(255,255,255,0.35)); white-space: nowrap; }
+#badge { position: absolute; top: 7px; left: 50%; transform: translateX(-50%); z-index: 3; font-size: var(--layer-name-font-size, 11px); color: var(--layer-name-color, #fff); opacity: var(--layer-name-opacity, 1); padding: 3px 10px; border-radius: var(--pill-border-radius, 999px); background: var(--key-fill, transparent); border: 1px solid var(--layer-name-border, rgba(255,255,255,0.35)); white-space: nowrap; }
 #startup-error { position: absolute; inset: 0; display: flex; align-items: center;
                  justify-content: center; text-align: center; padding: 12px;
                  font-size: 13px; opacity: 0.9; }
-body[data-base="0"] #board { outline: 2px solid rgba(120,180,255,0.6); outline-offset: -2px; }
+body[data-base="0"] #board { outline: var(--base-outline-width, 2px) solid var(--base-outline, rgba(120,180,255,0.6)); outline-offset: -2px; }
 body.offline .layer { opacity: 0.4; }
 body.offline #badge { opacity: calc(var(--layer-name-opacity, 1) * 0.4); }
-#offline-indicator { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 4; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: #fff; background: #d92c2c; border: 1px solid rgba(255,255,255,0.65); }
+#offline-indicator { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 4; padding: 4px 10px; border-radius: var(--pill-border-radius, 999px); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: #fff; background: #d92c2c; border: 1px solid rgba(255,255,255,0.65); }
 #offline-indicator[hidden] { display: none; }
 .key.thumb-left { transform: rotate(15deg); transform-origin: center; }
 .key.thumb-right { transform: rotate(-15deg); transform-origin: center; }
-body.grab #board { outline: 2px solid rgba(255,220,120,0.9); outline-offset: -2px; }
+body.grab #board { outline: var(--grab-outline-width, 2px) solid var(--grab-outline, rgba(255,220,120,0.9)); outline-offset: -2px; }
 .resize-handle { display: none; position: fixed; width: 18px; height: 18px; z-index: 10;
                  border: 2px solid rgba(255,220,120,0.9); }
 body.grab .resize-handle { display: block; }

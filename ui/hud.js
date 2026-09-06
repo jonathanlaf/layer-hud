@@ -15,6 +15,7 @@ document.addEventListener('contextmenu', (e) => e.preventDefault());
 // and re-applied after every renderBoard() so config-only re-renders (e.g. an
 // opacity tick) don't snap the HUD back to layer 0.
 let lastLayer = 0;
+const pressedKeys = new Set();
 
 // Cached inputs to the last successful render, so a window resize can
 // re-render at the new scale without re-invoking the backend.
@@ -53,7 +54,7 @@ export function renderBoard(layoutJson, config) {
   board.innerHTML = '';
   const { unit, offX, offY } = computeLayout(config);
   board.style.setProperty('--key-unit', `${unit}px`);
-  const rects = keyRects();
+  const rects = keyRects(config.key_spacing ?? 0.06);
   const badge = document.createElement('div');
   badge.id = 'badge';
   badge.style.top = `${Math.max(4, offY)}px`;
@@ -73,6 +74,8 @@ export function renderBoard(layoutJson, config) {
       const r = rects[i];
       const k = document.createElement('div');
       k.className = 'key';
+      k.dataset.keyIndex = i;
+      if (pressedKeys.has(i)) k.classList.add('pressed');
       if (i === 24 || i === 25) k.classList.add('thumb-left');
       if (i === 50 || i === 51) k.classList.add('thumb-right');
       k.style.cssText = `left:${offX + r.x * unit}px;top:${offY + r.y * unit}px;width:${r.w * unit}px;height:${r.h * unit}px`;
@@ -156,6 +159,14 @@ function applyTheme(config) {
   st.setProperty('--shift-icon-scale', config.shift_icon_scale ?? 1);
   st.setProperty('--alternate-action-icon-scale', config.alternate_action_icon_scale ?? 1);
   st.setProperty('--border-color', hexToRgba(config.border_color, config.border_opacity));
+  st.setProperty('--pressed-key-color', config.pressed_key_color ?? '#7ad7ff');
+  st.setProperty('--pressed-key-fill', hexToRgba(config.pressed_key_color ?? '#7ad7ff', config.pressed_key_fill_opacity ?? 0.45));
+  st.setProperty('--pressed-key-border', hexToRgba(config.pressed_key_border_color ?? config.pressed_key_color ?? '#7ad7ff', config.pressed_key_border_opacity ?? 0.85));
+  st.setProperty('--pressed-key-border-width', `${config.pressed_key_border_width ?? 1}px`);
+  st.setProperty('--key-border-radius', `${config.key_border_radius ?? 7}px`);
+  st.setProperty('--pill-border-radius', `${config.pill_border_radius ?? 999}px`);
+  st.setProperty('--key-shadow', config.show_key_shadows ? `0 2px 5px ${hexToRgba(config.key_shadow_color ?? '#ffffff', config.key_shadow_opacity ?? 0.25)}` : 'none');
+  st.setProperty('--pressed-key-shadow', config.show_pressed_key_shadow ? `0 0 10px ${hexToRgba(config.pressed_key_shadow_color ?? config.pressed_key_border_color ?? config.pressed_key_color ?? '#7ad7ff', config.pressed_key_shadow_opacity ?? 0.85)}` : 'none');
   st.setProperty('--border-width', `${config.border_width}px`);
   st.setProperty('--key-fill', hexToRgba(config.key_fill_color, config.key_fill_opacity));
   st.setProperty('--base-outline', hexToRgba(config.base_outline_color, config.base_outline_opacity));
@@ -186,6 +197,37 @@ export function setActiveLayer(n) {
   document.body.dataset.base = n === 0 ? '1' : '0';
 }
 
+export function setKeyPressed(index, pressed) {
+  const key = Number(index);
+  if (!Number.isInteger(key) || key < 0) return;
+  if (pressed) pressedKeys.add(key);
+  else pressedKeys.delete(key);
+  document.querySelectorAll(`.key[data-key-index="${key}"]`).forEach((el) => {
+    el.classList.toggle('pressed', pressed);
+  });
+}
+
+// Voyager's Oryx events contain QMK matrix coordinates.  This mirrors the
+// LAYOUT_voyager matrix map, including the staggered thumb positions, and
+// converts them to the flat Oryx layer-key order used by the renderer.
+function voyagerIndex(col, row) {
+  const matrix = [
+    [null, 0, 1, 2, 3, 4, 5],
+    [null, 6, 7, 8, 9, 10, 11],
+    [null, 12, 13, 14, 15, 16, 17],
+    [null, 18, 19, 20, 21, 22, null],
+    [null, null, null, null, 23, null, null],
+    [24, 25, null, null, null, null, null],
+    [26, 27, 28, 29, 30, 31, null],
+    [32, 33, 34, 35, 36, 37, null],
+    [38, 39, 40, 41, 42, 43, null],
+    [null, 45, 46, 47, 48, 49, null],
+    [null, null, 44, null, null, null, null],
+    [null, null, null, null, null, 50, 51],
+  ];
+  return matrix[row]?.[col] ?? null;
+}
+
 export function setOffline(off) {
   document.body.classList.toggle('offline', off);
   const indicator = document.getElementById('offline-indicator');
@@ -197,7 +239,7 @@ function showStartupError(error) {
   board.innerHTML = '';
   const msg = document.createElement('div');
   msg.id = 'startup-error';
-  msg.textContent = error ? `No layout — ${error}` : 'No layout — set Oryx URL in Settings';
+  msg.textContent = error ? `No layout — ${error}` : 'No keyboard layout detected';
   board.appendChild(msg);
 }
 
@@ -209,6 +251,22 @@ async function main() {
     lastLayer = e.payload.layer;
     setActiveLayer(lastLayer);
   });
+  await listen('key-event', (e) => {
+    const index = voyagerIndex(Number(e.payload.col), Number(e.payload.row));
+    if (index !== null) setKeyPressed(index, e.payload.pressed);
+  });
+  await listen('keyboard-layout', async (e) => {
+    // The keyboard identifies its Oryx layout over HID.  Refreshing here
+    // keeps layout selection automatic; the backend falls back to its cache
+    // when Oryx is unreachable.
+    if (e.payload?.layout) {
+      try {
+        await invoke('refresh_layout', { url: e.payload.layout });
+      } catch (err) {
+        console.warn('layer-hud: layout refresh failed:', err);
+      }
+    }
+  });
   await listen('keymapp-offline', () => setOffline(true));
   await listen('keymapp-online', () => setOffline(false));
   await listen('grab-mode', (e) => document.body.classList.toggle('grab', e.payload.on));
@@ -218,7 +276,8 @@ async function main() {
     // in at render time); everything else is covered by the CSS vars above.
     const needsRender = !lastConfig
       || e.payload.use_oryx_colors !== lastConfig.use_oryx_colors
-      || e.payload.padding !== lastConfig.padding;
+      || e.payload.padding !== lastConfig.padding
+      || e.payload.key_spacing !== lastConfig.key_spacing;
     if (needsRender) {
       renderBoard(await invoke('load_layout'), e.payload);
       setActiveLayer(lastLayer);
