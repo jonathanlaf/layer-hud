@@ -50,6 +50,12 @@
     background: light-dark(#fff, #3a3a42); color: inherit;
   }
   button:active { filter: brightness(0.92); }
+  .position-actions { display: flex; gap: 5px; }
+  .icon-button { width: 32px; height: 30px; padding: 5px; display: inline-flex;
+    align-items: center; justify-content: center; }
+  .icon-button svg { width: 20px; height: 20px; fill: none; stroke: currentColor;
+    stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .icon-button svg rect { fill: currentColor; stroke: none; opacity: 0.86; }
   .status { font-size: 12px; }
   .status.error { color: light-dark(#c62828, #ff9c9c); }
   .status.ok { color: light-dark(#2e7d32, #9cffb0); }
@@ -149,7 +155,7 @@
     </div>
   </div>
 
-  <h3>Colors</h3>
+  <h3 data-tab-section="appearance">Colors</h3>
   <div class="card colors-grid" data-tab-section="appearance">
     <div class="color-row"><input type="color" id="bg-color" /><label for="bg-color">Background<small>Overlay surface</small></label></div>
     <div class="color-row"><input type="color" id="key-fill-color" /><label for="key-fill-color">Key fill<small>Inside each key</small></label></div>
@@ -204,7 +210,25 @@
   <div class="card">
     <div class="row">
       <label>Overlay position</label>
-      <button id="reset-position">Reset to center</button>
+      <span class="position-actions">
+        <button class="icon-button" id="center-horizontal" type="button" aria-label="Center horizontally" title="Center horizontally">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18"/><rect x="5" y="5" width="14" height="3" rx="1"/><rect x="7" y="10.5" width="10" height="3" rx="1"/><rect x="4" y="16" width="16" height="3" rx="1"/></svg>
+        </button>
+        <button class="icon-button" id="center-vertical" type="button" aria-label="Center vertically" title="Center vertically">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18"/><rect x="5" y="4" width="3" height="16" rx="1"/><rect x="10.5" y="7" width="3" height="10" rx="1"/><rect x="16" y="5" width="3" height="14" rx="1"/></svg>
+        </button>
+        <button class="icon-button" id="center-both" type="button" aria-label="Center horizontally and vertically" title="Center both">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
+        </button>
+        <button class="icon-button" id="reset-position" type="button" aria-label="Reset all positions" title="Reset all positions">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8a8 8 0 1 1-1 8"/><path d="M5 3v5h5"/></svg>
+        </button>
+      </span>
+    </div>
+    <div class="row">
+      <label for="keyboard-halves-distance">Keyboard halves distance</label>
+      <input type="range" id="keyboard-halves-distance" min="0.25" max="20" step="0.05" />
+      <input class="val" id="keyboard-halves-distance-val" inputmode="decimal" aria-label="Keyboard halves distance value" />
     </div>
   </div>
 

@@ -5,6 +5,9 @@ use tauri::{AppHandle, Manager};
 pub fn build(app: &AppHandle) -> tauri::Result<()> {
     let refresh = MenuItem::with_id(app, "refresh", "Refresh layout", true, None::<&str>)?;
     let pin = CheckMenuItem::with_id(app, "pin", "Pin overlay (interactive)", true, false, None::<&str>)?;
+    if let Ok(path) = crate::oryx::config_path(app) {
+        let _ = pin.set_checked(crate::config::load(&path).overlay_pinned);
+    }
     let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
     let legend = MenuItem::with_id(app, "legend", "Icon legend & layers…", true, None::<&str>)?;
     #[cfg(debug_assertions)]
@@ -56,6 +59,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                 // would wrongly force the window non-interactive here, and
                 // the loop's cache would then suppress the correction).
                 state.pinned.store(pinned, std::sync::atomic::Ordering::SeqCst);
+                let _ = crate::oryx::update_config(app, move |cfg| cfg.overlay_pinned = pinned);
             }
             "legend" => {
                 if let Some(w) = app.get_webview_window("legend") {

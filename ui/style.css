@@ -56,7 +56,7 @@ body.grab #board { outline: var(--grab-outline-width, 2px) solid var(--grab-outl
 .resize-handle { display: none; position: fixed; width: 18px; height: 18px; z-index: 10;
                  border: 2px solid rgba(255,220,120,0.9); }
 body.grab .resize-handle { display: block; }
-.resize-handle.northwest { top: 0; left: 0; border-right: none; border-bottom: none; cursor: nwse-resize; }
-.resize-handle.northeast { top: 0; right: 0; border-left: none; border-bottom: none; cursor: nesw-resize; }
-.resize-handle.southwest { bottom: 0; left: 0; border-right: none; border-top: none; cursor: nesw-resize; }
-.resize-handle.southeast { bottom: 0; right: 0; border-left: none; border-top: none; cursor: nwse-resize; }
+.resize-handle.northwest { top: 5px; left: 5px; border-right: none; border-bottom: none; cursor: nwse-resize; }
+.resize-handle.northeast { top: 5px; right: 5px; border-left: none; border-bottom: none; cursor: nesw-resize; }
+.resize-handle.southwest { bottom: 5px; left: 5px; border-right: none; border-top: none; cursor: nesw-resize; }
+.resize-handle.southeast { bottom: 5px; right: 5px; border-left: none; border-top: none; cursor: nwse-resize; }

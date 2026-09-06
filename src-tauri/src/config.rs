@@ -19,6 +19,7 @@ pub struct Config {
     pub border_opacity: f64,
     pub border_width: f64,
     pub grab_combo: Vec<String>,
+    pub overlay_pinned: bool,
     pub use_oryx_colors: bool,
     pub show_layer_action_icons: bool,
     pub show_shift_icons: bool,
@@ -48,6 +49,7 @@ pub struct Config {
     pub key_shadow_opacity: f64,
     pub pressed_key_shadow_opacity: f64,
     pub key_spacing: f64,
+    pub keyboard_halves_distance: f64,
     pub base_outline_enabled: bool,
     pub base_outline_color: String,
     pub base_outline_opacity: f64,
@@ -88,6 +90,7 @@ impl Default for Config {
             border_opacity: 0.35,
             border_width: 1.0,
             grab_combo: vec!["cmd".into(), "alt".into()],
+            overlay_pinned: false,
             use_oryx_colors: true,
             show_layer_action_icons: true,
             show_shift_icons: true,
@@ -117,6 +120,7 @@ impl Default for Config {
             key_shadow_opacity: 0.25,
             pressed_key_shadow_opacity: 0.85,
             key_spacing: 0.06,
+            keyboard_halves_distance: 1.6,
             base_outline_enabled: true, base_outline_color: "#78b4ff".into(), base_outline_opacity: 0.6, base_outline_width: 2.0,
             grab_outline_enabled: true, grab_outline_color: "#ffdc78".into(), grab_outline_opacity: 0.9, grab_outline_width: 2.0,
             key_font_family: "".into(), key_font_size: 1.0, key_font_bold: false, key_font_italic: false, key_font_ligatures: false,
@@ -156,6 +160,7 @@ impl Config {
         self.key_shadow_opacity = self.key_shadow_opacity.clamp(0.0, 1.0);
         self.pressed_key_shadow_opacity = self.pressed_key_shadow_opacity.clamp(0.0, 1.0);
         self.key_spacing = self.key_spacing.clamp(0.0, 0.25);
+        self.keyboard_halves_distance = self.keyboard_halves_distance.clamp(0.25, 20.0);
         self.key_font_size = self.key_font_size.clamp(0.5, 2.0);
         self.legend_font_size = self.legend_font_size.clamp(0.5, 2.0);
         self.layer_name_font_size = self.layer_name_font_size.clamp(8.0, 24.0);

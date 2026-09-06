@@ -211,6 +211,7 @@ for (const [id, field] of [
   ['key-shadow-opacity', 'key_shadow_opacity'],
   ['pressed-key-shadow-opacity', 'pressed_key_shadow_opacity'],
   ['key-spacing', 'key_spacing'],
+  ['keyboard-halves-distance', 'keyboard_halves_distance'],
 ]) bindNumeric(id, field);
 
 for (const prefix of ['key', 'legend', 'layer_name']) {
@@ -294,8 +295,26 @@ for (const type of ['keydown', 'keyup']) {
   });
 }
 
+async function alignWindow(axis) {
+  try {
+    await invoke('align_window', { axis });
+  } catch (err) {
+    console.warn('layer-hud: could not align window:', err);
+  }
+}
+$('center-horizontal').addEventListener('click', () => alignWindow('horizontal'));
+$('center-vertical').addEventListener('click', () => alignWindow('vertical'));
+$('center-both').addEventListener('click', () => alignWindow('both'));
 $('reset-position').addEventListener('click', async () => {
-  await invoke('clear_window_position');
+  const status = $('settings-data-status');
+  if (status) status.textContent = 'Resetting overlay positions…';
+  try {
+    await invoke('reset_window_positions');
+    if (status) status.textContent = 'Overlay positions reset to center.';
+  } catch (err) {
+    if (status) status.textContent = `Position reset failed: ${err}`;
+    console.warn('layer-hud: could not reset window positions:', err);
+  }
 });
 
 $('export-settings').addEventListener('click', async () => {

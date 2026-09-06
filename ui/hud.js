@@ -1,4 +1,4 @@
-import { keyRects, BOARD_UNITS } from './geometry.mjs';
+import { keyRects, boardUnits } from './geometry.mjs';
 import { translateSlot, shiftLabel } from './translator.mjs';
 import { LAYER_ACTIONS } from './layer-actions.mjs';
 
@@ -37,13 +37,14 @@ function decorateAction(element, slotName, slot, secondary = false) {
 
 function computeLayout(config) {
   const pad = config.padding ?? 10;
+  const units = boardUnits(config.keyboard_halves_distance ?? 1.6);
   const availW = window.innerWidth - 2 * pad;
   const availH = window.innerHeight - 2 * pad;
-  const unit = Math.max(8, Math.min(availW / BOARD_UNITS.w, availH / BOARD_UNITS.h));
+  const unit = Math.max(8, Math.min(availW / units.w, availH / units.h));
   // Center the key grid on the board background.
-  const offX = (window.innerWidth - BOARD_UNITS.w * unit) / 2;
-  const offY = (window.innerHeight - BOARD_UNITS.h * unit) / 2;
-  return { unit, offX, offY };
+  const offX = (window.innerWidth - units.w * unit) / 2;
+  const offY = (window.innerHeight - units.h * unit) / 2;
+  return { unit, offX, offY, units };
 }
 
 export function renderBoard(layoutJson, config) {
@@ -52,9 +53,9 @@ export function renderBoard(layoutJson, config) {
   const layers = layoutJson.data.layout.revision.layers;
   const board = document.getElementById('board');
   board.innerHTML = '';
-  const { unit, offX, offY } = computeLayout(config);
+  const { unit, offX, offY, units } = computeLayout(config);
   board.style.setProperty('--key-unit', `${unit}px`);
-  const rects = keyRects(config.key_spacing ?? 0.06);
+  const rects = keyRects(config.key_spacing ?? 0.06, config.keyboard_halves_distance ?? 1.6);
   const badge = document.createElement('div');
   badge.id = 'badge';
   badge.style.top = `${Math.max(4, offY)}px`;
@@ -62,7 +63,7 @@ export function renderBoard(layoutJson, config) {
   const offline = document.createElement('div');
   offline.id = 'offline-indicator';
   offline.textContent = 'OFFLINE';
-  offline.style.top = `${offY + (BOARD_UNITS.h * unit) / 2}px`;
+  offline.style.top = `${offY + (units.h * unit) / 2}px`;
   offline.hidden = !document.body.classList.contains('offline');
   board.appendChild(offline);
   for (const layer of layers) {
@@ -270,19 +271,29 @@ async function main() {
   await listen('keymapp-offline', () => setOffline(true));
   await listen('keymapp-online', () => setOffline(false));
   await listen('grab-mode', (e) => document.body.classList.toggle('grab', e.payload.on));
+  try {
+    document.body.classList.toggle('grab', await invoke('is_overlay_pinned'));
+  } catch {}
   await listen('config-changed', async (e) => {
     applyTheme(e.payload);
     // Only a use_oryx_colors flip changes the DOM (glowColor tints are baked
     // in at render time); everything else is covered by the CSS vars above.
+    const distanceChanged = !!lastConfig && e.payload.keyboard_halves_distance !== lastConfig.keyboard_halves_distance;
     const needsRender = !lastConfig
       || e.payload.use_oryx_colors !== lastConfig.use_oryx_colors
       || e.payload.padding !== lastConfig.padding
-      || e.payload.key_spacing !== lastConfig.key_spacing;
+      || e.payload.key_spacing !== lastConfig.key_spacing
+      || e.payload.keyboard_halves_distance !== lastConfig.keyboard_halves_distance;
     if (needsRender) {
       renderBoard(await invoke('load_layout'), e.payload);
       setActiveLayer(lastLayer);
     } else {
       lastConfig = e.payload;
+    }
+    if (distanceChanged) {
+      try { await invoke('recalculate_window_geometry'); } catch (err) {
+        console.warn('layer-hud: could not recalculate window geometry:', err);
+      }
     }
   });
   await listen('layout-refreshed', async () => {
