@@ -1,5 +1,5 @@
 const { invoke } = window.__TAURI__.core;
-const { listen } = window.__TAURI__.event;
+const { listen, emit } = window.__TAURI__.event;
 
 let cfg = await invoke('get_config');
 const $ = (id) => document.getElementById(id);
@@ -72,12 +72,15 @@ $('pressed-key-color').value = cfg.pressed_key_color;
 $('pressed-key-border-color').value = cfg.pressed_key_border_color;
 $('key-shadow-color').value = cfg.key_shadow_color;
 $('pressed-key-shadow-color').value = cfg.pressed_key_shadow_color;
+$('heatmap-color').value = cfg.heatmap_color;
 $('base-outline-color').value = cfg.base_outline_color;
 $('grab-outline-color').value = cfg.grab_outline_color;
 $('colors-toggle').checked = cfg.use_oryx_colors;
 $('layer-action-icons').checked = cfg.show_layer_action_icons;
 $('shift-icons').checked = cfg.show_shift_icons;
 $('alternate-action-icons').checked = cfg.show_alternate_action_icons;
+$('heatmap-toggle').checked = cfg.show_heatmap;
+$('heatmap-counts-toggle').checked = cfg.show_heatmap_counts;
 $('key-shadows').checked = cfg.show_key_shadows;
 $('pressed-key-shadow').checked = cfg.show_pressed_key_shadow;
 $('base-outline-enabled').checked = cfg.base_outline_enabled;
@@ -127,6 +130,7 @@ bind('pressed-key-color', 'pressed_key_color');
 bind('pressed-key-border-color', 'pressed_key_border_color');
 bind('key-shadow-color', 'key_shadow_color');
 bind('pressed-key-shadow-color', 'pressed_key_shadow_color');
+bind('heatmap-color', 'heatmap_color');
 bind('base-outline-color', 'base_outline_color');
 bind('grab-outline-color', 'grab_outline_color');
 
@@ -201,6 +205,7 @@ for (const [id, field] of [
   ['padding', 'padding'],
   ['shift-icon-scale', 'shift_icon_scale'],
   ['alternate-action-icon-scale', 'alternate_action_icon_scale'],
+  ['heatmap-peak', 'heatmap_peak'],
   ['key-font-size', 'key_font_size'],
   ['legend-font-size', 'legend_font_size'],
   ['layer-name-font-size', 'layer_name_font_size'],
@@ -242,6 +247,31 @@ $('shift-icons').addEventListener('change', (e) => {
 $('alternate-action-icons').addEventListener('change', (e) => {
   commit('show_alternate_action_icons', e.target.checked);
 });
+const syncHeatmapControls = (enabled) => {
+  $('heatmap-peak').disabled = !enabled;
+  $('heatmap-peak-val').disabled = !enabled;
+};
+syncHeatmapControls(cfg.show_heatmap);
+$('heatmap-toggle').addEventListener('change', (e) => {
+  syncHeatmapControls(e.target.checked);
+  commit('show_heatmap', e.target.checked);
+});
+$('heatmap-counts-toggle').addEventListener('change', (e) => commit('show_heatmap_counts', e.target.checked));
+$('heatmap-reset').addEventListener('click', async () => {
+  try {
+    await emit('heatmap-reset');
+    $('heatmap-reset').textContent = 'Reset';
+  } catch (err) {
+    $('heatmap-reset').textContent = 'Failed';
+    setTimeout(() => { $('heatmap-reset').textContent = 'Reset'; }, 1200);
+  }
+});
+await listen('heatmap-stats', (event) => {
+  const total = Number(event.payload?.total ?? 0);
+  const keys = Number(event.payload?.keys ?? 0);
+  $('heatmap-count').textContent = `${total.toLocaleString()} presses · ${keys} keys`;
+});
+try { await emit('heatmap-request'); } catch {}
 $('key-shadows').addEventListener('change', (e) => commit('show_key_shadows', e.target.checked));
 $('pressed-key-shadow').addEventListener('change', (e) => commit('show_pressed_key_shadow', e.target.checked));
 $('base-outline-enabled').addEventListener('change', (e) => commit('base_outline_enabled', e.target.checked));

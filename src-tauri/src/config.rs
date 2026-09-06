@@ -30,6 +30,10 @@ pub struct Config {
     pub shift_icon_scale: f64,
     pub show_alternate_action_icons: bool,
     pub alternate_action_icon_scale: f64,
+    pub show_heatmap: bool,
+    pub show_heatmap_counts: bool,
+    pub heatmap_color: String,
+    pub heatmap_peak: f64,
     pub key_fill_color: String,
     pub key_fill_opacity: f64,
     pub padding: f64,
@@ -105,6 +109,10 @@ impl Default for Config {
             shift_icon_scale: 1.0,
             show_alternate_action_icons: true,
             alternate_action_icon_scale: 1.0,
+            show_heatmap: false,
+            show_heatmap_counts: false,
+            heatmap_color: "#ff5c5c".into(),
+            heatmap_peak: 20.0,
             key_fill_color: "#ffffff".into(),
             key_fill_opacity: 0.0,
             padding: 10.0,
@@ -156,6 +164,7 @@ impl Config {
         self.padding = self.padding.clamp(0.0, 60.0);
         self.shift_icon_scale = self.shift_icon_scale.clamp(0.5, 2.5);
         self.alternate_action_icon_scale = self.alternate_action_icon_scale.clamp(0.5, 2.5);
+        self.heatmap_peak = self.heatmap_peak.clamp(1.0, 1000.0);
         self.base_outline_opacity = self.base_outline_opacity.clamp(0.0, 1.0);
         self.base_outline_width = self.base_outline_width.clamp(0.0, 5.0);
         self.grab_outline_opacity = self.grab_outline_opacity.clamp(0.0, 1.0);

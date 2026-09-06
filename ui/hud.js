@@ -3,7 +3,7 @@ import { translateSlot, shiftLabel } from './translator.mjs';
 import { LAYER_ACTIONS } from './layer-actions.mjs';
 
 const { invoke } = window.__TAURI__.core;
-const { listen } = window.__TAURI__.event;
+const { listen, emit } = window.__TAURI__.event;
 
 // A ctrl-click while dragging in grab mode is macOS's system convention for
 // a secondary click, which would otherwise pop the webview's native context
@@ -16,6 +16,15 @@ document.addEventListener('contextmenu', (e) => e.preventDefault());
 // opacity tick) don't snap the HUD back to layer 0.
 let lastLayer = 0;
 const pressedKeys = new Set();
+const heatmapCounts = new Uint32Array(52);
+const HEATMAP_STORAGE_KEY = 'layer-hud-heatmap-v1';
+try {
+  const saved = JSON.parse(localStorage.getItem(HEATMAP_STORAGE_KEY) || '[]');
+  if (Array.isArray(saved)) saved.slice(0, heatmapCounts.length).forEach((n, i) => {
+    heatmapCounts[i] = Number.isFinite(Number(n)) ? Math.max(0, Math.min(0xffffffff, Number(n))) : 0;
+  });
+} catch {}
+let heatmapSaveTimer;
 
 // Cached inputs to the last successful render, so a window resize can
 // re-render at the new scale without re-invoking the backend.
@@ -24,6 +33,46 @@ let lastConfig = null;
 let toggleMacro = [];
 let toggleMacroBuffer = [];
 let toggleMacroLastAt = 0;
+
+function saveHeatmap() {
+  clearTimeout(heatmapSaveTimer);
+  heatmapSaveTimer = setTimeout(() => {
+    try { localStorage.setItem(HEATMAP_STORAGE_KEY, JSON.stringify([...heatmapCounts])); } catch {}
+  }, 250);
+}
+
+function publishHeatmapStats() {
+  const total = heatmapCounts.reduce((sum, count) => sum + count, 0);
+  const keys = heatmapCounts.reduce((sum, count) => sum + (count > 0 ? 1 : 0), 0);
+  emit('heatmap-stats', { total, keys }).catch(() => {});
+}
+
+function applyHeatmapKey(index) {
+  const peak = Math.max(1, Number(lastConfig?.heatmap_peak ?? 20));
+  const count = heatmapCounts[index] || 0;
+  const strength = Math.min(1, count / peak);
+  document.querySelectorAll(`.key[data-key-index="${index}"]`).forEach((el) => {
+    el.classList.toggle('heatmap-active', strength > 0);
+    el.style.setProperty('--heatmap-fill', hexToRgba(lastConfig?.heatmap_color ?? '#ff5c5c', 0.08 + strength * 0.72));
+    const count = el.querySelector('.heatmap-count');
+    if (count) {
+      count.textContent = String(heatmapCounts[index] || 0);
+      count.hidden = false;
+    }
+  });
+}
+
+function refreshHeatmap() {
+  for (let i = 0; i < heatmapCounts.length; i += 1) applyHeatmapKey(i);
+}
+
+function recordHeatmap(index) {
+  if (index < 0 || index >= heatmapCounts.length) return;
+  heatmapCounts[index] = Math.min(0xffffffff, heatmapCounts[index] + 1);
+  applyHeatmapKey(index);
+  saveHeatmap();
+  publishHeatmapStats();
+}
 
 function decorateAction(element, slotName, slot, secondary = false) {
   const isLayer = slot?.layer !== null && slot?.layer !== undefined;
@@ -83,6 +132,16 @@ export function renderBoard(layoutJson, config) {
       if (i === 24 || i === 25) k.classList.add('thumb-left');
       if (i === 50 || i === 51) k.classList.add('thumb-right');
       k.style.cssText = `left:${offX + r.x * unit}px;top:${offY + r.y * unit}px;width:${r.w * unit}px;height:${r.h * unit}px`;
+      if (heatmapCounts[i]) {
+        k.classList.add('heatmap-active');
+        k.style.setProperty('--heatmap-fill', hexToRgba(config.heatmap_color ?? '#ff5c5c', 0.08 + Math.min(1, heatmapCounts[i] / Math.max(1, config.heatmap_peak ?? 20)) * 0.72));
+      }
+      if (config.show_heatmap_counts) {
+        const count = document.createElement('span');
+        count.className = 'heatmap-count';
+        count.textContent = String(heatmapCounts[i] || 0);
+        k.appendChild(count);
+      }
       if (config.use_oryx_colors && key.glowColor) k.style.background = hexTint(key.glowColor);
       const custom = key.customLabel;
       const tap = document.createElement('span');
@@ -151,6 +210,8 @@ function applyTheme(config) {
   document.body.classList.toggle('show-layer-action-icons', config.show_layer_action_icons ?? true);
   document.body.classList.toggle('show-shift-icons', config.show_shift_icons ?? true);
   document.body.classList.toggle('show-alternate-action-icons', config.show_alternate_action_icons ?? true);
+  document.body.classList.toggle('show-heatmap', config.show_heatmap ?? false);
+  document.body.classList.toggle('show-heatmap-counts', config.show_heatmap_counts ?? false);
   const st = document.documentElement.style;
   st.setProperty('--board-bg', hexToRgba(config.bg_color, config.opacity));
   st.setProperty('--char-opacity', config.char_opacity);
@@ -163,6 +224,7 @@ function applyTheme(config) {
   st.setProperty('--alternate-color', config.alternate_color ?? '#ffffff');
   st.setProperty('--shift-icon-scale', config.shift_icon_scale ?? 1);
   st.setProperty('--alternate-action-icon-scale', config.alternate_action_icon_scale ?? 1);
+  st.setProperty('--heatmap-color', config.heatmap_color ?? '#ff5c5c');
   st.setProperty('--border-color', hexToRgba(config.border_color, config.border_opacity));
   st.setProperty('--pressed-key-color', config.pressed_key_color ?? '#7ad7ff');
   st.setProperty('--pressed-key-fill', hexToRgba(config.pressed_key_color ?? '#7ad7ff', config.pressed_key_fill_opacity ?? 0.45));
@@ -184,6 +246,7 @@ function applyTheme(config) {
   fontVars(st, 'key', config);
   fontVars(st, 'legend', config);
   fontVars(st, 'layer_name', config);
+  refreshHeatmap();
 }
 
 function applyOverlayVisibility(payload) {
@@ -284,7 +347,11 @@ async function main() {
     setActiveLayer(lastLayer);
   });
   await listen('key-event', (e) => {
+    // Keep the same matrix-to-visual mapping used by the pressed-key layer.
+    // The backend also sends an index, but older firmware/event payloads may
+    // omit it; col/row is the stable protocol shared by both paths.
     const index = voyagerIndex(Number(e.payload.col), Number(e.payload.row));
+    if (index !== null && Number.isInteger(index) && e.payload.pressed) recordHeatmap(index);
     if (index !== null) setKeyPressed(index, e.payload.pressed);
     if (index !== null && e.payload.pressed && toggleMacro.length) {
       const now = performance.now();
@@ -298,6 +365,13 @@ async function main() {
       }
     }
   });
+  await listen('heatmap-reset', () => {
+    heatmapCounts.fill(0);
+    try { localStorage.removeItem(HEATMAP_STORAGE_KEY); } catch {}
+    refreshHeatmap();
+    publishHeatmapStats();
+  });
+  await listen('heatmap-request', publishHeatmapStats);
   await listen('keyboard-layout', async (e) => {
     // The keyboard identifies its Oryx layout over HID.  Refreshing here
     // keeps layout selection automatic; the backend falls back to its cache
@@ -332,7 +406,8 @@ async function main() {
       || e.payload.use_oryx_colors !== lastConfig.use_oryx_colors
       || e.payload.padding !== lastConfig.padding
       || e.payload.key_spacing !== lastConfig.key_spacing
-      || e.payload.keyboard_halves_distance !== lastConfig.keyboard_halves_distance;
+      || e.payload.keyboard_halves_distance !== lastConfig.keyboard_halves_distance
+      || e.payload.show_heatmap_counts !== lastConfig.show_heatmap_counts;
     if (needsRender) {
       renderBoard(await invoke('load_layout'), e.payload);
       setActiveLayer(lastLayer);

@@ -138,3 +138,19 @@ body.overlay-hidden.grab[data-hide-side="bottom"] .resize-handle.northwest,
 body.overlay-hidden.grab[data-hide-side="bottom"] .resize-handle.northeast {
   top: calc(100% - var(--hide-visible-y) + 10px); bottom: auto;
 }
+
+body.show-heatmap .key.heatmap-active {
+  background: var(--heatmap-fill, rgba(255, 92, 92, 0.2)) !important;
+}
+.heatmap-count {
+  position: absolute;
+  right: 3px;
+  bottom: 2px;
+  z-index: 2;
+  font-size: calc(var(--key-unit, 62px) * 0.11);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-color, #fff);
+  opacity: 0.8;
+  pointer-events: none;
+}

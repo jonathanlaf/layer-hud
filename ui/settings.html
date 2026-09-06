@@ -133,6 +133,12 @@
     <div class="row">
       <span class="hint">Icons for alternate characters reached by double-tap, hold, or tap-and-hold.</span>
     </div>
+    <div class="row"><label for="heatmap-toggle">Show key heatmap</label><input type="checkbox" id="heatmap-toggle" /></div>
+    <div class="row"><span class="hint">Accumulate physical key presses and tint frequently used keys by intensity.</span></div>
+    <div class="row"><label for="heatmap-counts-toggle">Show heatmap counts on keys</label><input type="checkbox" id="heatmap-counts-toggle" /></div>
+    <div class="row"><span class="hint">Display each key's recorded press count; double-taps count twice and holds count once.</span></div>
+    <div class="row"><label for="heatmap-peak">Heatmap saturation presses</label><input type="range" id="heatmap-peak" min="1" max="1000" step="1" /><input class="val" id="heatmap-peak-val" inputmode="numeric" /></div>
+    <div class="row"><label>Heatmap history</label><span><span id="heatmap-count" class="hint">0 presses</span> <button id="heatmap-reset" type="button">Reset</button></span></div>
     <div class="row"><label for="key-shadows">Show key shadows</label><input type="checkbox" id="key-shadows" /></div>
     <div class="row"><label for="pressed-key-shadow">Show pressed-key shadow</label><input type="checkbox" id="pressed-key-shadow" /></div>
     <div class="row"><label for="key-shadow-opacity">Key shadow opacity</label><input type="range" id="key-shadow-opacity" min="0" max="1" step="0.05" /><input class="val" id="key-shadow-opacity-val" inputmode="decimal" /></div>
@@ -168,6 +174,7 @@
     <div class="color-row"><input type="color" id="pressed-key-border-color" /><label for="pressed-key-border-color">Pressed key border<small>Active key outline</small></label></div>
     <div class="color-row"><input type="color" id="key-shadow-color" /><label for="key-shadow-color">Key shadow<small>Shadow for all keys</small></label></div>
     <div class="color-row"><input type="color" id="pressed-key-shadow-color" /><label for="pressed-key-shadow-color">Pressed key shadow<small>Shadow for active keys</small></label></div>
+    <div class="color-row"><input type="color" id="heatmap-color" /><label for="heatmap-color">Heatmap<small>Color for frequently used keys</small></label></div>
     <div class="color-row"><input type="color" id="base-outline-color" /><label for="base-outline-color">Layer outline<small>Non-base layer outline</small></label></div>
     <div class="color-row"><input type="color" id="grab-outline-color" /><label for="grab-outline-color">Grab outline<small>Move/resize mode outline</small></label></div>
     <div class="row"><label for="key-fill-opacity">Key fill opacity</label><input type="range" id="key-fill-opacity" min="0" max="1" step="0.05" /><input class="val" id="key-fill-opacity-val" inputmode="decimal" aria-label="Key fill opacity value" /></div>

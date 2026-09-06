@@ -6,7 +6,8 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
     let refresh = MenuItem::with_id(app, "refresh", "Refresh layout", true, None::<&str>)?;
     let pin = CheckMenuItem::with_id(app, "pin", "Pin overlay (interactive)", true, false, None::<&str>)?;
     if let Ok(path) = crate::oryx::config_path(app) {
-        let _ = pin.set_checked(crate::config::load(&path).overlay_pinned);
+        let cfg = crate::config::load(&path);
+        let _ = pin.set_checked(cfg.overlay_pinned);
     }
     let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
     let legend = MenuItem::with_id(app, "legend", "Icon legend & layers…", true, None::<&str>)?;
