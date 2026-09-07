@@ -40,7 +40,12 @@ pub fn spawn(app: AppHandle) {
             // Compute the mask while still holding the guard instead of
             // cloning the Vec out first — combo_mask only needs a &[String],
             // so this avoids a fresh allocation every 100ms tick forever.
-            let mask = combo_mask(&state.grab_combo.lock().unwrap_or_else(|poisoned| poisoned.into_inner()));
+            let mask = combo_mask(
+                &state
+                    .grab_combo
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner()),
+            );
             let flags = unsafe { CGEventSourceFlagsState(COMBINED_SESSION_STATE) };
             let grabbed = combo_active(flags, mask);
             let pinned = state.pinned.load(std::sync::atomic::Ordering::SeqCst);
@@ -48,7 +53,10 @@ pub fn spawn(app: AppHandle) {
             // overlay accepts mouse events; recomputing from both inputs every
             // tick (rather than only reacting to combo transitions) keeps them
             // from fighting over set_ignore_cursor_events.
-            let interactive = grabbed || pinned;
+            let interactive = (grabbed || pinned)
+                && !state
+                    .overlay_fully_hidden
+                    .load(std::sync::atomic::Ordering::SeqCst);
             if last_interactive != Some(interactive) {
                 last_interactive = Some(interactive);
                 if let Some(w) = app.get_webview_window("overlay") {
@@ -68,7 +76,10 @@ mod tests {
     #[test]
     fn masks_map_to_cg_flags() {
         assert_eq!(combo_mask(&["cmd".into()]), MASK_CMD);
-        assert_eq!(combo_mask(&["cmd".into(), "alt".into()]), MASK_CMD | MASK_ALT);
+        assert_eq!(
+            combo_mask(&["cmd".into(), "alt".into()]),
+            MASK_CMD | MASK_ALT
+        );
         assert_eq!(combo_mask(&["bogus".into()]), 0);
     }
 

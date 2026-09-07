@@ -20,8 +20,8 @@ function textualKeyName(key, keyIndex) {
   const slot = key.tap || key.hold;
   if (!slot) return keyLocation(keyIndex);
   if (slot.layer !== null && slot.layer !== undefined) return `Layer ${slot.layer} key`;
-  if (!slot.code || ['KC_NO', 'KC_TRANSPARENT', 'KC_TRNS'].includes(slot.code)) return keyLocation(keyIndex);
-  if (slot.code in KEY_NAMES) return KEY_NAMES[slot.code];
+  if (typeof slot.code !== 'string' || ['KC_NO', 'KC_TRANSPARENT', 'KC_TRNS'].includes(slot.code)) return keyLocation(keyIndex);
+  if (Object.hasOwn(KEY_NAMES, slot.code)) return KEY_NAMES[slot.code];
   if (slot.code.startsWith('KC_')) return slot.code.slice(3).replace(/_/g, ' ');
   const label = translateSlot(slot);
   return SYMBOL_NAMES[label] || label || keyLocation(keyIndex);

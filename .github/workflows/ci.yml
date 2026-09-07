@@ -13,9 +13,17 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+      - name: Rust formatting
+        working-directory: src-tauri
+        run: cargo fmt --check
+      - name: Rust lint
+        working-directory: src-tauri
+        run: cargo clippy --locked --all-targets -- -D warnings
       - name: cargo test
         working-directory: src-tauri
         run: cargo test --locked

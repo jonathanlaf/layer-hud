@@ -1,9 +1,27 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { keyRects } from '../geometry.mjs';
+import { keyRects, boardUnits } from '../geometry.mjs';
 
 test('52 keys', () => {
   assert.equal(keyRects().length, 52);
+});
+
+test('halves distance moves only the right half and updates the board bounds', () => {
+  const near = keyRects(0.06, 1.6);
+  const far = keyRects(0.06, 20);
+  assert.deepEqual(near.slice(0, 26), far.slice(0, 26));
+  for (let i = 26; i < 52; i++) assert.ok(Math.abs(far[i].x - near[i].x - 18.4) < 1e-10);
+  assert.deepEqual(boardUnits(20), { w: 32, h: 6 });
+});
+
+test('key spacing changes key size without moving the key origins', () => {
+  const tight = keyRects(0);
+  const loose = keyRects(0.25);
+  for (let i = 0; i < 52; i++) {
+    assert.equal(tight[i].x, loose[i].x);
+    assert.equal(tight[i].y, loose[i].y);
+    assert.equal(tight[i].w - loose[i].w, 0.25);
+  }
 });
 
 test('halves are separated by a split gap', () => {

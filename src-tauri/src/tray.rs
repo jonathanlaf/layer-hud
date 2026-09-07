@@ -1,10 +1,26 @@
 use tauri::menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Listener, Manager};
 
 pub fn build(app: &AppHandle) -> tauri::Result<()> {
     let refresh = MenuItem::with_id(app, "refresh", "Refresh layout", true, None::<&str>)?;
-    let pin = CheckMenuItem::with_id(app, "pin", "Pin overlay (interactive)", true, false, None::<&str>)?;
+    let toggle = MenuItem::with_id(app, "toggle", "Toggle overlay", true, None::<&str>)?;
+    #[cfg(debug_assertions)]
+    let force_connection = MenuItem::with_id(
+        app,
+        "force-connection",
+        "Force connected layout",
+        true,
+        None::<&str>,
+    )?;
+    let pin = CheckMenuItem::with_id(
+        app,
+        "pin",
+        "Pin overlay (interactive)",
+        true,
+        false,
+        None::<&str>,
+    )?;
     if let Ok(path) = crate::oryx::config_path(app) {
         let cfg = crate::config::load(&path);
         let _ = pin.set_checked(cfg.overlay_pinned);
@@ -17,12 +33,20 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
     // The overlay's own right/ctrl-click context menu is disabled (see
     // hud.js) since a click during grab mode can hold ctrl; DevTools access
     // moves here instead, and only exists at all in debug builds.
-    let mut items: Vec<&dyn IsMenuItem<tauri::Wry>> = vec![&refresh, &pin, &settings, &legend];
+    let mut items: Vec<&dyn IsMenuItem<tauri::Wry>> =
+        vec![&refresh, &toggle, &pin, &settings, &legend];
+    #[cfg(debug_assertions)]
+    items.push(&force_connection);
     #[cfg(debug_assertions)]
     items.push(&devtools);
     items.push(&quit);
     let menu = Menu::with_items(app, &items)?;
     let pin_handle = pin.clone();
+    app.listen("config-changed", move |event| {
+        if let Ok(cfg) = serde_json::from_str::<crate::config::Config>(event.payload()) {
+            let _ = pin.set_checked(cfg.overlay_pinned);
+        }
+    });
 
     // Rasterized from icons/voyager.svg. Keep the transparent monochrome image
     // as a template so macOS supplies contrasting light/dark menu-bar colors.
@@ -35,10 +59,64 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
             "refresh" => {
                 let app = app.clone();
                 tauri::async_runtime::spawn(async move {
-                    let Ok(path) = crate::oryx::config_path(&app) else { return; };
-                    let hash = crate::config::load(&path).oryx_url;
-                    let _ = crate::oryx::refresh_layout(app.clone(), hash).await;
+                    if let Err(error) = crate::layout::refresh_layout(app.clone()).await {
+                        eprintln!("layer-hud: {error}");
+                        let _ = tauri::Emitter::emit(&app, "layout-error", error);
+                    }
                 });
+            }
+            "toggle" => {
+                let app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(error) = crate::oryx::toggle_overlay_visibility(app.clone()).await {
+                        eprintln!("layer-hud: overlay toggle failed: {error}");
+                        let _ = tauri::Emitter::emit(&app, "overlay-toggle-error", error);
+                    }
+                });
+            }
+            #[cfg(debug_assertions)]
+            "force-connection" => {
+                let state = app.state::<crate::state::HudState>();
+                let actual = state
+                    .keyboard_online
+                    .load(std::sync::atomic::Ordering::SeqCst);
+                let current = state
+                    .connection_override
+                    .load(std::sync::atomic::Ordering::SeqCst);
+                let effective = match current {
+                    0 => false,
+                    1 => true,
+                    _ => actual,
+                };
+                let forced_online = !effective;
+                state.connection_override.store(
+                    if forced_online { 1 } else { 0 },
+                    std::sync::atomic::Ordering::SeqCst,
+                );
+                let _ = force_connection.set_text(if forced_online {
+                    "Force disconnected layout"
+                } else {
+                    "Force connected layout"
+                });
+                let event = if forced_online {
+                    "keyboard-online"
+                } else {
+                    "keyboard-offline"
+                };
+                let _ = tauri::Emitter::emit(app, event, serde_json::json!({ "forced": true }));
+                if forced_online {
+                    let app = app.clone();
+                    tauri::async_runtime::spawn(async move {
+                        match crate::layout::load_layout(app.clone()).await {
+                            Ok(layout) => {
+                                let _ = tauri::Emitter::emit(&app, "layout-refreshed", layout);
+                            }
+                            Err(error) => {
+                                let _ = tauri::Emitter::emit(&app, "layout-error", error);
+                            }
+                        }
+                    });
+                }
             }
             "pin" => {
                 // Flip our own tracked flag rather than trusting the menu
@@ -59,8 +137,15 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                 // desync (e.g. unchecking pin while the combo is still held
                 // would wrongly force the window non-interactive here, and
                 // the loop's cache would then suppress the correction).
-                state.pinned.store(pinned, std::sync::atomic::Ordering::SeqCst);
-                let _ = crate::oryx::update_config(app, move |cfg| cfg.overlay_pinned = pinned);
+                match crate::oryx::update_config(app, move |cfg| cfg.overlay_pinned = pinned) {
+                    Ok(cfg) => {
+                        let _ = tauri::Emitter::emit(app, "config-changed", cfg);
+                    }
+                    Err(error) => {
+                        let _ = pin_handle.set_checked(!pinned);
+                        eprintln!("layer-hud: could not save pin mode: {error}");
+                    }
+                }
             }
             "legend" => {
                 if let Some(w) = app.get_webview_window("legend") {
@@ -72,10 +157,11 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                     "legend",
                     tauri::WebviewUrl::App("legend.html".into()),
                 )
-                .title("Layer HUD — Icon legend & layers")
+                .title("KeyAura — Icon legend & layers")
                 .inner_size(620.0, 640.0)
                 .min_inner_size(420.0, 320.0)
-                .build() {
+                .build()
+                {
                     eprintln!("Failed to open icon legend: {e}");
                 }
             }
@@ -93,7 +179,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                         "settings",
                         tauri::WebviewUrl::App("settings.html".into()),
                     )
-                    .title("Layer HUD Settings")
+                    .title("KeyAura Settings — About")
                     .inner_size(640.0, 720.0)
                     .min_inner_size(520.0, 520.0)
                     .always_on_top(true)

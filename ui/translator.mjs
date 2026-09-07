@@ -77,16 +77,16 @@ function modString(modifiers) {
 }
 
 function cleanCode(code) {
-  return code.replace(/^(KC|CSA|MAC)_/, '').replace(/_/g, ' ');
+  return typeof code === 'string' ? code.replace(/^(KC|CSA|MAC)_/, '').replace(/_/g, ' ') : '';
 }
 
 export function translateSlot(slot) {
   if (!slot) return '';
-  if (slot.customLabel) return slot.customLabel;
+  if (typeof slot.customLabel === 'string' && slot.customLabel) return slot.customLabel;
   if (slot.layer !== null && slot.layer !== undefined) return `L${slot.layer}`;
   if (slot.macro && Array.isArray(slot.macro.keys)) {
     const parts = slot.macro.keys
-      .filter((k) => k.code !== 'KC_TRANSPARENT')
+      .filter((k) => typeof k?.code === 'string' && k.code !== 'KC_TRANSPARENT')
       .map((k) => {
         const mods = modString(k.modifiers)
           .split('')
@@ -96,6 +96,7 @@ export function translateSlot(slot) {
       });
     return parts.length ? parts.join(' ') : 'MACRO';
   }
+  if (typeof slot.code !== 'string') return '';
   const mods = modString(slot.modifiers);
   if (mods) {
     const combo = COMBO_TABLE[`${slot.code}+${mods}`];
@@ -103,8 +104,8 @@ export function translateSlot(slot) {
     const base = DEAD_TABLE[slot.code] ?? BASE_TABLE[slot.code] ?? cleanCode(slot.code);
     return mods.split('').map((m) => MOD_SYMBOL[m]).join('') + base;
   }
-  if (slot.code in DEAD_TABLE) return DEAD_TABLE[slot.code];
-  if (slot.code in BASE_TABLE) return BASE_TABLE[slot.code];
+  if (Object.hasOwn(DEAD_TABLE, slot.code)) return DEAD_TABLE[slot.code];
+  if (Object.hasOwn(BASE_TABLE, slot.code)) return BASE_TABLE[slot.code];
   const m = slot.code.match(/^KC_([A-Z0-9])$/);
   if (m) return m[1];
   if (/^KC_F\d+$/.test(slot.code)) return slot.code.slice(3);

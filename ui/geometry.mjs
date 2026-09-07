@@ -25,5 +25,3 @@ export function keyRects(spacing = 0.06, halfDistance = DEFAULT_HALF_DISTANCE) {
 export function boardUnits(halfDistance = DEFAULT_HALF_DISTANCE) {
   return { w: HALF_WIDTH * 2 + halfDistance, h: 6.0 };
 }
-
-export const BOARD_UNITS = boardUnits();

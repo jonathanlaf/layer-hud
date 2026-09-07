@@ -60,7 +60,7 @@ async function reload() {
   } catch (error) {
     if (version !== loadVersion) return;
     $('layers').replaceChildren();
-    $('status').textContent = `Could not load layers. Set an Oryx URL in Settings, then reload. ${error}`;
+    $('status').textContent = `Could not load layers. Connect your Voyager and use Refresh layout from the tray. ${error}`;
   } finally {
     if (version === loadVersion) $('reload').disabled = false;
   }

@@ -61,6 +61,10 @@ jobs:
         working-directory: src-tauri
         run: cargo build --locked --release
 
+      - name: Test release source and Cargo/Tauri version consistency
+        working-directory: src-tauri
+        run: cargo test --locked
+
       - uses: tauri-apps/tauri-action@v0
         id: tauri
         env:

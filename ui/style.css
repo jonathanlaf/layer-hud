@@ -12,10 +12,14 @@ body.overlay-hidden[data-hide-side="top"] #board { border-top-left-radius: 0; bo
 body.overlay-hidden[data-hide-side="bottom"] #board { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
 .layer { display: none; }
 .layer.active { display: block; }
+.keyboard-half { position: absolute; inset: 0; pointer-events: none; }
+.keyboard-half > .key { pointer-events: auto; }
+.keyboard-half.left-half { transform: rotate(calc(var(--halves-rotation, 0deg) * -1)); transform-origin: 25% 50%; }
+.keyboard-half.right-half { transform: rotate(var(--halves-rotation, 0deg)); transform-origin: 75% 50%; }
 .key { position: absolute; border: var(--border-width, 1px) solid var(--border-color, rgba(255,255,255,0.35)); border-radius: var(--key-border-radius, 7px);
-       box-sizing: border-box; text-align: center; background: var(--key-fill, transparent); box-shadow: var(--key-shadow, none); }
+       box-sizing: border-box; text-align: center; background: var(--oryx-fill, var(--key-fill, transparent)); box-shadow: var(--key-shadow, none); }
 .key .tap { position: absolute; inset: 0; display: flex; align-items: center;
-            justify-content: center; font-size: calc(var(--key-unit, 62px) * 0.258);
+            justify-content: center; font-size: calc(var(--key-unit, 62px) * 0.258 * var(--key-font-scale, 1));
             color: var(--text-color, #fff); opacity: var(--char-opacity, 1); }
 .key .hold { position: absolute; bottom: 2px; left: 0; right: 0;
              font-size: calc(var(--key-unit, 62px) * 0.145); opacity: calc(0.75 * var(--char-opacity, 1)); color: var(--text-color, #fff); }
@@ -44,15 +48,35 @@ body.show-shift-icons .shift-icon {
 .layer-action-icon.held, .alternate-action-icon.held { --action-icon: url('icons/held.svg'); }
 .layer-action-icon.double-tapped, .alternate-action-icon.double-tapped { --action-icon: url('icons/double-tapped.svg'); }
 .layer-action-icon.tapped-held, .alternate-action-icon.tapped-held { --action-icon: url('icons/tapped-held.svg'); }
+.layer-target-icon { --action-icon: url('icons/layers.svg'); display: inline-block; flex: 0 0 auto;
+  width: 1.5em; height: 1.5em; vertical-align: middle; background-color: currentColor;
+  -webkit-mask: var(--action-icon) center / contain no-repeat; mask: var(--action-icon) center / contain no-repeat; }
+.layer-target-wrap { position: relative; display: inline-block; vertical-align: middle;
+  flex: 0 0 auto; }
+.key .tap .layer-target-wrap { width: calc(var(--key-unit, 62px) * .258 * var(--key-font-scale, 1) * 1.5); height: calc(var(--key-unit, 62px) * .258 * var(--key-font-scale, 1) * 1.5); font-size: calc(var(--key-unit, 62px) * .258 * var(--key-font-scale, 1)); }
+.key .hold .layer-target-wrap, .key .dtap .layer-target-wrap, .key .thold .layer-target-wrap { width: calc(var(--key-unit, 62px) * .145 * var(--legend-font-scale, 1) * 1.5); height: calc(var(--key-unit, 62px) * .145 * var(--legend-font-scale, 1) * 1.5); font-size: calc(var(--key-unit, 62px) * .145 * var(--legend-font-scale, 1)); }
+.layer-target-wrap .layer-target-icon { position: absolute; inset: 0; width: 100%; height: 100%; }
+.layer-target-number { position: absolute; left: 50%; top: 32%; z-index: 2; display: block;
+  transform: translate(-50%, -50%); text-align: center; font-size: .72em; font-weight: 800;
+  line-height: 1; color: var(--text-color, #fff); pointer-events: none;
+  text-shadow: 0 1px 3px #000, 0 0 2px #000, 0 0 1px #000; }
+/* The action glyph and numbered target glyph are independent controls. */
+body.show-layer-target-icons .layer-target-wrap { display: inline-block; }
+body:not(.show-layer-target-icons) .layer-target-wrap { display: none; }
+body.show-layer-target-icons .layer-target-label { display: none; }
+body.layer-indicator-none .layer-target-label { display: none; }
 body.show-shift-icons .shift-icon {
   width: calc(0.85em * var(--shift-icon-scale, 1));
   height: calc(0.85em * var(--shift-icon-scale, 1)); vertical-align: baseline;
 }
 .shift-icon { --action-icon: url('icons/shift.svg'); margin-right: 0.15em; }
-#badge { position: absolute; top: 7px; left: 50%; transform: translateX(-50%); z-index: 3; font-size: var(--layer-name-font-size, 11px); color: var(--layer-name-color, #fff); opacity: var(--layer-name-opacity, 1); padding: 3px 10px; border-radius: var(--pill-border-radius, 999px); background: var(--key-fill, transparent); border: 1px solid var(--layer-name-border, rgba(255,255,255,0.35)); white-space: nowrap; }
+#badge { position: absolute; top: 8%; left: 50%; transform: translate(-50%, -50%); z-index: 3; font-size: var(--layer-name-font-size, 11px); color: var(--layer-name-color, #fff); opacity: var(--layer-name-opacity, 1); padding: 3px 10px; border-radius: var(--pill-border-radius, 999px); background: var(--key-fill, transparent); border: 1px solid var(--layer-name-border, rgba(255,255,255,0.35)); white-space: nowrap; }
 #startup-error { position: absolute; inset: 0; display: flex; align-items: center;
                  justify-content: center; text-align: center; padding: 12px;
                  font-size: 13px; opacity: 0.9; }
+#board[data-toggle-error]::before { content: attr(data-toggle-error); position: absolute; z-index: 30;
+  left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 6px 10px;
+  color: #fff; background: rgba(160, 30, 30, .9); border-radius: 6px; font-size: 12px; }
 body[data-base="0"] #board { outline: var(--base-outline-width, 2px) solid var(--base-outline, rgba(120,180,255,0.6)); outline-offset: -2px; }
 body.offline .layer { opacity: 0.4; }
 body.offline #badge { opacity: calc(var(--layer-name-opacity, 1) * 0.4); }
@@ -140,17 +164,43 @@ body.overlay-hidden.grab[data-hide-side="bottom"] .resize-handle.northeast {
 }
 
 body.show-heatmap .key.heatmap-active {
-  background: var(--heatmap-fill, rgba(255, 92, 92, 0.2)) !important;
+  background: var(--heatmap-fill, rgba(255, 92, 92, 0.2));
 }
+/* A live press remains visible above both Oryx and heatmap fills. */
+body .key.pressed, body.show-heatmap .key.pressed { background: var(--pressed-key-fill, rgba(122,215,255,0.45)); }
+.key .tap, .heatmap-count {
+  font-family: var(--key-font-family, -apple-system), sans-serif;
+  font-weight: var(--key-font-weight, 400);
+  font-style: var(--key-font-style, normal);
+  font-variant-ligatures: var(--key-font-ligatures, common-ligatures);
+}
+.key .hold, .key .dtap, .key .thold, .key .shift {
+  font-family: var(--legend-font-family, -apple-system), sans-serif;
+  font-weight: var(--legend-font-weight, 400);
+  font-style: var(--legend-font-style, normal);
+  font-size: calc(var(--key-unit, 62px) * 0.145 * var(--legend-font-scale, 1));
+  font-variant-ligatures: var(--legend-font-ligatures, common-ligatures);
+}
+#badge {
+  font-family: var(--layer-name-font-family, -apple-system), sans-serif;
+  font-weight: var(--layer-name-font-weight, 400);
+  font-style: var(--layer-name-font-style, normal);
+  font-variant-ligatures: var(--layer-name-font-ligatures, common-ligatures);
+}
+body.show-heatmap-counts .key > :not(.heatmap-count) { visibility: hidden; }
+body.overlay-hidden.overlay-fully-hidden #board,
+body.overlay-hidden.overlay-fully-hidden .resize-handle { visibility: hidden !important; pointer-events: none !important; }
 .heatmap-count {
   position: absolute;
-  right: 3px;
-  bottom: 2px;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   z-index: 2;
-  font-size: calc(var(--key-unit, 62px) * 0.11);
+  font-size: calc(var(--key-unit, 62px) * 0.258 * var(--key-font-scale, 1));
   line-height: 1;
   font-variant-numeric: tabular-nums;
   color: var(--text-color, #fff);
-  opacity: 0.8;
+  opacity: var(--char-opacity, 1);
   pointer-events: none;
 }

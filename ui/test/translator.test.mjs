@@ -45,6 +45,12 @@ test('unknown code falls back to cleaned name', () => {
   assert.equal(translateSlot({ code: 'KC_SOMETHING_NEW' }), 'SOMETHING NEW');
 });
 
+test('missing slot codes and malformed macro entries do not crash rendering', () => {
+  for (const slot of [null, {}, { code: null }, { code: 42 }]) assert.equal(translateSlot(slot), '');
+  assert.equal(translateSlot({ macro: { keys: [null, {}, { code: 2 }, { code: 'KC_A' }] } }), 'A');
+  assert.equal(translateSlot({ code: 'constructor' }), 'constructor');
+});
+
 test('shift legends for CSA shift pairs', async () => {
   const { shiftLabel } = await import('../translator.mjs');
   assert.equal(shiftLabel({ code: 'KC_6' }), '?');

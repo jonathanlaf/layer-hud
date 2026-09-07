@@ -3,11 +3,12 @@
 mod config;
 mod grab;
 mod hid;
+mod layout;
 mod oryx;
 mod state;
 mod tray;
 
-use tauri::Manager;
+use tauri::{Emitter, Listener, Manager};
 
 fn main() {
     tauri::Builder::default()
@@ -17,6 +18,19 @@ fn main() {
         ))
         .setup(|app| {
             app.manage(state::HudState::new());
+            let app_handle = app.handle().clone();
+            app.listen("macro-recording", move |event| {
+                let recording = serde_json::from_str::<bool>(event.payload()).unwrap_or(false);
+                let state = app_handle.state::<state::HudState>();
+                state
+                    .macro_recording
+                    .store(recording, std::sync::atomic::Ordering::SeqCst);
+                state
+                    .macro_buffer
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner())
+                    .clear();
+            });
             if let Err(e) = oryx::migrate_legacy_identifier(app.handle()) {
                 eprintln!("layer-hud: legacy config migration failed: {e}");
             }
@@ -29,8 +43,13 @@ fn main() {
             // overlay has ever appeared on it — start at 30% of it, centered.
             if let Ok(path) = oryx::config_path(app.handle()) {
                 let cfg = config::load(&path);
-                app.state::<state::HudState>().pinned.store(cfg.overlay_pinned, std::sync::atomic::Ordering::SeqCst);
-                *app.state::<state::HudState>().grab_combo.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = cfg.grab_combo.clone();
+                app.state::<state::HudState>()
+                    .pinned
+                    .store(cfg.overlay_pinned, std::sync::atomic::Ordering::SeqCst);
+                *app.state::<state::HudState>()
+                    .grab_combo
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner()) = cfg.grab_combo.clone();
                 let monitors = overlay.available_monitors().unwrap_or_default();
                 // A freshly-created window's current_monitor() just reflects
                 // wherever the OS placed it (usually the primary display),
@@ -41,10 +60,17 @@ fn main() {
                     .last_monitor
                     .as_ref()
                     .and_then(|last| monitors.iter().find(|m| &oryx::monitor_key(m) == last))
-                    .or_else(|| overlay.current_monitor().ok().flatten().as_ref().and_then(|cur| {
-                        let key = oryx::monitor_key(cur);
-                        monitors.iter().find(|m| oryx::monitor_key(m) == key)
-                    }))
+                    .or_else(|| {
+                        overlay
+                            .current_monitor()
+                            .ok()
+                            .flatten()
+                            .as_ref()
+                            .and_then(|cur| {
+                                let key = oryx::monitor_key(cur);
+                                monitors.iter().find(|m| oryx::monitor_key(m) == key)
+                            })
+                    })
                     .or_else(|| monitors.first());
                 if let Some(mon) = target {
                     let key = oryx::monitor_key(mon);
@@ -64,25 +90,40 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            if window.label() == "settings" && matches!(event, tauri::WindowEvent::Destroyed) {
+                // A pagehide IPC can be lost when WebKit is destroyed. Always
+                // release shortcut recording from the native close path too.
+                let _ = window.app_handle().emit("macro-recording", false);
+            }
             if window.label() != "overlay" {
                 return;
             }
-            if window.app_handle().state::<state::HudState>().overlay_hidden.load(std::sync::atomic::Ordering::SeqCst) {
+            if window
+                .app_handle()
+                .state::<state::HudState>()
+                .overlay_hidden
+                .load(std::sync::atomic::Ordering::SeqCst)
+            {
                 return;
             }
-            if matches!(event, tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_)) {
+            if matches!(
+                event,
+                tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_)
+            ) {
                 let app = window.app_handle();
                 let scale = window.scale_factor().unwrap_or(1.0);
-                if let (Ok(pos), Ok(size), Ok(Some(mon))) =
-                    (window.outer_position(), window.inner_size(), window.current_monitor())
-                {
+                if let (Ok(pos), Ok(size), Ok(Some(mon))) = (
+                    window.outer_position(),
+                    window.inner_size(),
+                    window.current_monitor(),
+                ) {
                     let pos = pos.to_logical::<f64>(scale);
                     let mut size = size.to_logical::<f64>(scale);
                     // Keep the keyboard's aspect ratio and resize around its
                     // current center, so dragging any corner grows/shrinks it
                     // without making the overlay drift or distort its padding.
                     if matches!(event, tauri::WindowEvent::Resized(_)) {
-                        let half_distance = oryx::config_path(&app)
+                        let half_distance = oryx::config_path(app)
                             .ok()
                             .map(|path| config::load(&path).keyboard_halves_distance)
                             .unwrap_or(1.6);
@@ -94,10 +135,16 @@ fn main() {
                             // correct the opposite dimension to the keyboard
                             // ratio, avoiding the visible jump caused by
                             // repeatedly recentering during native resize.
-                            let _ = window.set_size(tauri::LogicalSize::new(size.width, size.height));
+                            let _ =
+                                window.set_size(tauri::LogicalSize::new(size.width, size.height));
                         }
                     }
-                    let rect = config::WindowRect { x: pos.x, y: pos.y, w: size.width, h: size.height };
+                    let rect = config::WindowRect {
+                        x: pos.x,
+                        y: pos.y,
+                        w: size.width,
+                        h: size.height,
+                    };
                     let key = oryx::monitor_key(&mon);
                     if let Err(e) = oryx::update_config(app, move |cfg| {
                         cfg.window_by_monitor.insert(key.clone(), rect);
@@ -109,17 +156,18 @@ fn main() {
             }
         })
         .invoke_handler(tauri::generate_handler![
-            oryx::refresh_layout,
-            oryx::load_layout,
+            oryx::get_app_version,
+            layout::refresh_layout,
+            layout::load_layout,
             oryx::get_config,
+            oryx::set_settings_title,
             oryx::set_config,
-            oryx::clear_window_position,
             oryx::align_window,
             oryx::reset_window_positions,
             oryx::recalculate_window_geometry,
             oryx::is_overlay_pinned,
             oryx::toggle_overlay_visibility,
-            oryx::is_keyboard_online,
+            oryx::get_keyboard_status,
             oryx::export_config,
             oryx::import_config,
             oryx::reset_config,

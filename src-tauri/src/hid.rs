@@ -7,7 +7,7 @@ use hidapi::{HidApi, HidDevice};
 use serde_json::json;
 use std::thread;
 use std::time::Duration;
-use tauri::{AppHandle, Emitter, Manager, Runtime};
+use tauri::{AppHandle, Emitter, Manager};
 
 const ORYX_USAGE_PAGE: u16 = 0xff60;
 const ORYX_USAGE: u16 = 0x61;
@@ -22,22 +22,36 @@ const EVT_KEYUP: u8 = 0x07;
 
 fn matrix_index(col: usize, row: usize) -> Option<u8> {
     const MAP: [[i16; 7]; 12] = [
-        [-1, 0, 1, 2, 3, 4, 5], [-1, 6, 7, 8, 9, 10, 11],
-        [-1, 12, 13, 14, 15, 16, 17], [-1, 18, 19, 20, 21, 22, -1],
-        [-1, -1, -1, -1, 23, -1, -1], [24, 25, -1, -1, -1, -1, -1],
-        [26, 27, 28, 29, 30, 31, -1], [32, 33, 34, 35, 36, 37, -1],
-        [38, 39, 40, 41, 42, 43, -1], [-1, 45, 46, 47, 48, 49, -1],
-        [-1, -1, 44, -1, -1, -1, -1], [-1, -1, -1, -1, -1, 50, 51],
+        [-1, 0, 1, 2, 3, 4, 5],
+        [-1, 6, 7, 8, 9, 10, 11],
+        [-1, 12, 13, 14, 15, 16, 17],
+        [-1, 18, 19, 20, 21, 22, -1],
+        [-1, -1, -1, -1, 23, -1, -1],
+        [24, 25, -1, -1, -1, -1, -1],
+        [26, 27, 28, 29, 30, 31, -1],
+        [32, 33, 34, 35, 36, 37, -1],
+        [38, 39, 40, 41, 42, 43, -1],
+        [-1, 45, 46, 47, 48, 49, -1],
+        [-1, -1, 44, -1, -1, -1, -1],
+        [-1, -1, -1, -1, -1, 50, 51],
     ];
-    MAP.get(row)?.get(col).copied().filter(|i| *i >= 0).map(|i| i as u8)
+    MAP.get(row)?
+        .get(col)
+        .copied()
+        .filter(|i| *i >= 0)
+        .map(|i| i as u8)
+}
+
+fn is_voyager_interface(product: Option<&str>, usage_page: u16, usage: u16) -> bool {
+    usage_page == ORYX_USAGE_PAGE
+        && usage == ORYX_USAGE
+        && product.is_some_and(|name| name.eq_ignore_ascii_case("Voyager"))
 }
 
 fn find_device(api: &HidApi) -> Option<HidDevice> {
     api.device_list()
-        .find(|info| {
-            info.usage_page() == ORYX_USAGE_PAGE && info.usage() == ORYX_USAGE
-        })
-        .and_then(|info| info.open_device(api).ok())
+        .filter(|info| is_voyager_interface(info.product_string(), info.usage_page(), info.usage()))
+        .find_map(|info| info.open_device(api).ok())
 }
 
 fn pair(device: &HidDevice) -> bool {
@@ -53,7 +67,14 @@ fn emit_online(app: &AppHandle, online: &mut bool) {
         app.state::<crate::state::HudState>()
             .keyboard_online
             .store(true, std::sync::atomic::Ordering::SeqCst);
-        let _ = app.emit("keyboard-online", json!({}));
+        if app
+            .state::<crate::state::HudState>()
+            .connection_override
+            .load(std::sync::atomic::Ordering::SeqCst)
+            != 0
+        {
+            let _ = app.emit("keyboard-online", json!({}));
+        }
     }
 }
 
@@ -61,56 +82,157 @@ fn emit_offline(app: &AppHandle, online: &mut bool) {
     if *online {
         *online = false;
         app.state::<crate::state::HudState>()
+            .active_layer
+            .store(0, std::sync::atomic::Ordering::SeqCst);
+        app.state::<crate::state::HudState>()
             .keyboard_online
             .store(false, std::sync::atomic::Ordering::SeqCst);
-        let _ = app.emit("keyboard-offline", json!({}));
+        if app
+            .state::<crate::state::HudState>()
+            .connection_override
+            .load(std::sync::atomic::Ordering::SeqCst)
+            != 1
+        {
+            let _ = app.emit("keyboard-offline", json!({}));
+        }
     }
 }
 
 fn emit_layout_identity(app: &AppHandle, device: &HidDevice) {
-    // Oryx-generated firmware stores the layout/revision pair in the USB
-    // serial number, e.g. "Br3gO/OadOzq".  This lets the UI select the right
-    // cached layout without a manually entered URL.
-    if let Ok(Some(serial)) = device.get_serial_number_string() {
-        if let Some((layout, revision)) = serial.split_once('/') {
-            if !layout.is_empty() {
-                let _ = app.emit(
-                    "keyboard-layout",
-                    json!({ "layout": layout, "revision": revision }),
-                );
-            }
+    let identity = device
+        .get_serial_number_string()
+        .ok()
+        .flatten()
+        .and_then(|serial| crate::layout::LayoutIdentity::from_serial(&serial));
+    *app.state::<crate::state::HudState>()
+        .layout_identity
+        .lock()
+        .unwrap_or_else(|p| p.into_inner()) = identity.clone();
+    let _ = app.emit("layout-loading", identity);
+    // Fetch in the backend: a one-shot event sent before the webview starts
+    // listening must not be the only copy of the keyboard's identity.
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(error) = crate::layout::refresh_layout(app.clone()).await {
+            eprintln!("layer-hud: {error}");
+            let _ = app.emit("layout-error", error);
         }
-    }
+    });
 }
 
-fn handle_packet<R: Runtime>(app: &AppHandle<R>, packet: &[u8]) {
-    if packet.is_empty() {
-        return;
-    }
-    // hidapi prepends a zero Report ID for this unnumbered HID report.
-    let data = if packet[0] == 0 && packet.len() > REPORT_LEN {
+#[derive(Debug, PartialEq)]
+enum Packet {
+    Layer(u8),
+    Key {
+        col: u8,
+        row: u8,
+        index: u8,
+        pressed: bool,
+    },
+}
+
+fn decode_packet(packet: &[u8]) -> Option<Packet> {
+    // hidapi reads normally omit report ID; also accept padded ID-zero reports.
+    let data = if packet.first() == Some(&0) && packet.len() == HID_BUFFER_LEN {
         &packet[1..]
     } else {
         packet
     };
-    match data[0] {
-        EVT_LAYER if data.len() > 1 => {
-            let _ = app.emit("layer-changed", json!({ "layer": data[1] }));
+    match *data.first()? {
+        EVT_LAYER => Some(Packet::Layer(*data.get(1)?)),
+        EVT_KEYDOWN | EVT_KEYUP => {
+            let col = *data.get(1)?;
+            let row = *data.get(2)?;
+            Some(Packet::Key {
+                col,
+                row,
+                index: matrix_index(col as usize, row as usize)?,
+                pressed: data[0] == EVT_KEYDOWN,
+            })
         }
-        // Oryx sends the QMK matrix coordinates, not the flattened visual
-        // key index: byte 1 is the matrix column and byte 2 is the row.
-        EVT_KEYDOWN | EVT_KEYUP if data.len() > 2 => {
+        _ => None,
+    }
+}
+
+fn handle_packet(app: &AppHandle, packet: &[u8]) {
+    match decode_packet(packet) {
+        Some(Packet::Layer(layer)) => {
+            app.state::<crate::state::HudState>()
+                .active_layer
+                .store(layer, std::sync::atomic::Ordering::SeqCst);
+            let _ = app.emit("layer-changed", json!({ "layer": layer }));
+        }
+        Some(Packet::Key {
+            col,
+            row,
+            index,
+            pressed,
+        }) => {
+            if pressed {
+                record_toggle_macro(app, index);
+            }
             let _ = app.emit(
                 "key-event",
-                json!({
-                    "col": data[1],
-                    "row": data[2],
-                    "index": matrix_index(data[1] as usize, data[2] as usize),
-                    "pressed": data[0] == EVT_KEYDOWN,
-                }),
+                json!({ "col": col, "row": row, "index": index, "pressed": pressed }),
             );
         }
-        _ => {}
+        None => {}
+    }
+}
+
+fn record_toggle_macro(app: &AppHandle, index: u8) {
+    let state = app.state::<crate::state::HudState>();
+    if state
+        .macro_recording
+        .load(std::sync::atomic::Ordering::SeqCst)
+    {
+        return;
+    }
+    let Ok(path) = crate::oryx::config_path(app) else {
+        return;
+    };
+    let cfg = crate::config::load(&path);
+    if cfg.toggle_macro.is_empty() {
+        return;
+    }
+    let now = std::time::Instant::now();
+    {
+        let mut last = state
+            .macro_last_down
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        if last.is_some_and(|(previous, at)| {
+            previous == index && now.duration_since(at) < std::time::Duration::from_millis(160)
+        }) {
+            return;
+        }
+        *last = Some((index, now));
+    }
+    let mut last_event = state
+        .macro_last_event
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let mut buffer = state.macro_buffer.lock().unwrap_or_else(|p| p.into_inner());
+    if last_event.is_some_and(|at| now.duration_since(at) > std::time::Duration::from_secs(1)) {
+        buffer.clear();
+    }
+    *last_event = Some(now);
+    buffer.push(index);
+    if buffer.len() > cfg.toggle_macro.len() {
+        let excess = buffer.len() - cfg.toggle_macro.len();
+        buffer.drain(..excess);
+    }
+    if buffer.as_slice() == cfg.toggle_macro.as_slice() {
+        buffer.clear();
+        drop(buffer);
+        drop(last_event);
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            if let Err(error) = crate::oryx::toggle_overlay_visibility(app.clone()).await {
+                eprintln!("layer-hud: HID macro toggle failed: {error}");
+                let _ = app.emit("overlay-toggle-error", error);
+            }
+        });
     }
 }
 
@@ -118,10 +240,7 @@ pub fn spawn(app: AppHandle) {
     thread::Builder::new()
         .name("oryx-hid-watcher".into())
         .spawn(move || {
-            // HudState starts optimistic so the overlay can render while the
-            // first USB enumeration is happening; transition it to offline
-            // immediately if no compatible HID device is found.
-            let mut online = true;
+            let mut online = false;
             loop {
                 let Ok(api) = HidApi::new() else {
                     emit_offline(&app, &mut online);
@@ -162,13 +281,78 @@ pub fn spawn(app: AppHandle) {
 
 #[cfg(test)]
 mod tests {
-    use super::handle_packet;
-    use tauri::test::mock_app;
+    use super::*;
 
     #[test]
-    fn key_packets_are_decoded() {
-        let app = mock_app();
-        handle_packet(app.handle(), &[0x06, 17]);
-        handle_packet(app.handle(), &[0x07, 17]);
+    fn ignores_other_raw_hid_keyboards_and_normal_typing_interfaces() {
+        assert!(is_voyager_interface(
+            Some("Voyager"),
+            ORYX_USAGE_PAGE,
+            ORYX_USAGE
+        ));
+        assert!(!is_voyager_interface(
+            Some("Moonlander"),
+            ORYX_USAGE_PAGE,
+            ORYX_USAGE
+        ));
+        assert!(!is_voyager_interface(None, ORYX_USAGE_PAGE, ORYX_USAGE));
+        assert!(!is_voyager_interface(Some("Voyager"), 1, 6));
+    }
+
+    #[test]
+    fn decodes_presses_releases_layers_and_padded_reports() {
+        assert_eq!(
+            decode_packet(&[EVT_KEYDOWN, 1, 0]),
+            Some(Packet::Key {
+                col: 1,
+                row: 0,
+                index: 0,
+                pressed: true
+            })
+        );
+        assert_eq!(
+            decode_packet(&[EVT_KEYUP, 6, 11]),
+            Some(Packet::Key {
+                col: 6,
+                row: 11,
+                index: 51,
+                pressed: false
+            })
+        );
+        assert_eq!(decode_packet(&[EVT_LAYER, 2]), Some(Packet::Layer(2)));
+        let mut report = [0; HID_BUFFER_LEN];
+        report[1..4].copy_from_slice(&[EVT_KEYDOWN, 0, 5]);
+        assert_eq!(
+            decode_packet(&report),
+            Some(Packet::Key {
+                col: 0,
+                row: 5,
+                index: 24,
+                pressed: true
+            })
+        );
+    }
+
+    #[test]
+    fn malformed_and_unused_matrix_positions_are_ignored() {
+        for bytes in [
+            vec![],
+            vec![EVT_LAYER],
+            vec![EVT_KEYDOWN, 17],
+            vec![EVT_KEYDOWN, 0, 0],
+            vec![EVT_KEYDOWN, 255, 255],
+            vec![99, 1, 0],
+        ] {
+            assert_eq!(decode_packet(&bytes), None);
+        }
+    }
+
+    #[test]
+    fn every_voyager_key_has_exactly_one_matrix_position() {
+        let mut keys: Vec<_> = (0..12)
+            .flat_map(|row| (0..7).filter_map(move |col| matrix_index(col, row)))
+            .collect();
+        keys.sort();
+        assert_eq!(keys, (0..52).collect::<Vec<_>>());
     }
 }
