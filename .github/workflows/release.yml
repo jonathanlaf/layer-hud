@@ -71,7 +71,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'Layer HUD ${{ github.ref_name }}'
+          releaseName: 'KeyAura ${{ github.ref_name }}'
           generateReleaseNotes: true
           releaseDraft: true
           prerelease: false
