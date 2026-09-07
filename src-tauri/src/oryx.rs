@@ -286,6 +286,132 @@ pub fn clear_window_position(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn align_window(app: AppHandle, axis: String) -> Result<(), String> {
+    let Some(w) = app.get_webview_window("overlay") else {
+        return Err("overlay window is not available".into());
+    };
+    let Some(mon) = w.current_monitor().map_err(|e| e.to_string())? else {
+        return Err("no monitor found for overlay window".into());
+    };
+    let scale = mon.scale_factor();
+    let mon_pos = mon.position().to_logical::<f64>(scale);
+    let mon_size = mon.size().to_logical::<f64>(scale);
+    let pos = w.outer_position().map_err(|e| e.to_string())?.to_logical::<f64>(scale);
+    let size = w.inner_size().map_err(|e| e.to_string())?.to_logical::<f64>(scale);
+    let mut x = pos.x;
+    let mut y = pos.y;
+    if axis == "horizontal" || axis == "both" {
+        x = mon_pos.x + (mon_size.width - size.width) / 2.0;
+    }
+    if axis == "vertical" || axis == "both" {
+        y = mon_pos.y + (mon_size.height - size.height) / 2.0;
+    }
+    if !matches!(axis.as_str(), "horizontal" | "vertical" | "both") {
+        return Err(format!("unknown alignment: {axis}"));
+    }
+    let rect = crate::config::WindowRect { x, y, w: size.width, h: size.height };
+    apply_rect(&w, &rect);
+    let key = monitor_key(&mon);
+    update_config(&app, move |cfg| {
+        cfg.window_by_monitor.insert(key.clone(), rect);
+        cfg.last_monitor = Some(key);
+    })?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn reset_window_positions(app: AppHandle) -> Result<(), String> {
+    update_config(&app, |cfg| {
+        cfg.window_by_monitor.clear();
+        cfg.last_monitor = None;
+    })?;
+    clear_window_position(app)
+}
+
+#[tauri::command]
+pub fn recalculate_window_geometry(app: AppHandle) -> Result<(), String> {
+    let Some(w) = app.get_webview_window("overlay") else {
+        return Ok(());
+    };
+    let scale = w.scale_factor().map_err(|e| e.to_string())?;
+    let pos = w.outer_position().map_err(|e| e.to_string())?.to_logical::<f64>(scale);
+    let size = w.inner_size().map_err(|e| e.to_string())?.to_logical::<f64>(scale);
+    let path = config_path(&app)?;
+    let distance = crate::config::load(&path).keyboard_halves_distance;
+    let ratio = (12.0 + distance) / 6.0;
+    let new_height = (size.width / ratio).max(120.0);
+    let center_y = pos.y + size.height / 2.0;
+    let new_y = center_y - new_height / 2.0;
+    let rect = crate::config::WindowRect { x: pos.x, y: new_y, w: size.width, h: new_height };
+    apply_rect(&w, &rect);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn is_overlay_pinned(app: AppHandle) -> bool {
+    app.state::<crate::state::HudState>()
+        .pinned
+        .load(std::sync::atomic::Ordering::SeqCst)
+}
+
+fn animate_position(window: &tauri::WebviewWindow, from: (f64, f64), to: (f64, f64), duration_ms: f64) {
+    let steps = ((duration_ms / 16.0).round() as u32).max(1);
+    for step in 1..=steps {
+        let t = step as f64 / steps as f64;
+        let eased = 1.0 - (1.0 - t).powi(3);
+        let x = from.0 + (to.0 - from.0) * eased;
+        let y = from.1 + (to.1 - from.1) * eased;
+        let _ = window.set_position(tauri::LogicalPosition::new(x, y));
+        std::thread::sleep(std::time::Duration::from_millis(16));
+    }
+}
+
+#[tauri::command]
+pub fn toggle_overlay_visibility(app: AppHandle) -> Result<(), String> {
+    let state = app.state::<crate::state::HudState>();
+    let Some(window) = app.get_webview_window("overlay") else { return Ok(()); };
+    let currently_hidden = state.overlay_hidden.load(std::sync::atomic::Ordering::SeqCst);
+    if currently_hidden {
+        let Some(rect) = state.hidden_rect.lock().unwrap_or_else(|p| p.into_inner()).take() else { return Ok(()); };
+        let cfg = crate::config::load(&config_path(&app)?);
+        let pos = window.outer_position().map_err(|e| e.to_string())?;
+        let scale = window.scale_factor().map_err(|e| e.to_string())?;
+        let from = pos.to_logical::<f64>(scale);
+        state.overlay_hidden.store(true, std::sync::atomic::Ordering::SeqCst);
+        animate_position(&window, (from.x, from.y), (rect.x, rect.y), cfg.hide_animation_ms);
+        state.overlay_hidden.store(false, std::sync::atomic::Ordering::SeqCst);
+        let _ = app.emit("overlay-visibility", serde_json::json!({ "hidden": false }));
+        return Ok(());
+    }
+    let Some(mon) = window.current_monitor().map_err(|e| e.to_string())? else { return Err("no monitor found".into()); };
+    let scale = window.scale_factor().map_err(|e| e.to_string())?;
+    let pos = window.outer_position().map_err(|e| e.to_string())?.to_logical::<f64>(scale);
+    let size = window.inner_size().map_err(|e| e.to_string())?.to_logical::<f64>(scale);
+    let rect = crate::config::WindowRect { x: pos.x, y: pos.y, w: size.width, h: size.height };
+    let cfg = crate::config::load(&config_path(&app)?);
+    let mon_pos = mon.position().to_logical::<f64>(scale);
+    let mon_size = mon.size().to_logical::<f64>(scale);
+    let minimum_peek = 64.0;
+    let reveal_x = if cfg.hide_reveal == 0.0 { 0.0 } else { (size.width * cfg.hide_reveal).max(minimum_peek) };
+    let reveal_y = if cfg.hide_reveal == 0.0 { 0.0 } else { (size.height * cfg.hide_reveal).max(minimum_peek) };
+    let (target_x, target_y) = match cfg.hide_side.as_str() {
+        "left" => (mon_pos.x, pos.y),
+        "top" => (pos.x, mon_pos.y),
+        "bottom" => (pos.x, mon_pos.y + mon_size.height - size.height),
+        _ => (mon_pos.x + mon_size.width - size.width, pos.y),
+    };
+    *state.hidden_rect.lock().unwrap_or_else(|p| p.into_inner()) = Some(rect);
+    state.overlay_hidden.store(true, std::sync::atomic::Ordering::SeqCst);
+    let _ = app.emit("overlay-visibility", serde_json::json!({
+        "hidden": true,
+        "side": cfg.hide_side,
+        "reveal": (reveal_x / size.width).max(reveal_y / size.height),
+    }));
+    animate_position(&window, (pos.x, pos.y), (target_x, target_y), cfg.hide_animation_ms);
+    Ok(())
+}
+
+#[tauri::command]
 pub fn export_config(app: AppHandle) -> Result<String, String> {
     let cfg = crate::config::load(&config_path(&app)?);
     serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())

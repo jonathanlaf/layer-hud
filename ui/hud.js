@@ -1,9 +1,9 @@
-import { keyRects, BOARD_UNITS } from './geometry.mjs';
+import { keyRects, boardUnits } from './geometry.mjs';
 import { translateSlot, shiftLabel } from './translator.mjs';
 import { LAYER_ACTIONS } from './layer-actions.mjs';
 
 const { invoke } = window.__TAURI__.core;
-const { listen } = window.__TAURI__.event;
+const { listen, emit } = window.__TAURI__.event;
 
 // A ctrl-click while dragging in grab mode is macOS's system convention for
 // a secondary click, which would otherwise pop the webview's native context
@@ -15,11 +15,64 @@ document.addEventListener('contextmenu', (e) => e.preventDefault());
 // and re-applied after every renderBoard() so config-only re-renders (e.g. an
 // opacity tick) don't snap the HUD back to layer 0.
 let lastLayer = 0;
+const pressedKeys = new Set();
+const heatmapCounts = new Uint32Array(52);
+const HEATMAP_STORAGE_KEY = 'layer-hud-heatmap-v1';
+try {
+  const saved = JSON.parse(localStorage.getItem(HEATMAP_STORAGE_KEY) || '[]');
+  if (Array.isArray(saved)) saved.slice(0, heatmapCounts.length).forEach((n, i) => {
+    heatmapCounts[i] = Number.isFinite(Number(n)) ? Math.max(0, Math.min(0xffffffff, Number(n))) : 0;
+  });
+} catch {}
+let heatmapSaveTimer;
 
 // Cached inputs to the last successful render, so a window resize can
 // re-render at the new scale without re-invoking the backend.
 let lastLayout = null;
 let lastConfig = null;
+let toggleMacro = [];
+let toggleMacroBuffer = [];
+let toggleMacroLastAt = 0;
+
+function saveHeatmap() {
+  clearTimeout(heatmapSaveTimer);
+  heatmapSaveTimer = setTimeout(() => {
+    try { localStorage.setItem(HEATMAP_STORAGE_KEY, JSON.stringify([...heatmapCounts])); } catch {}
+  }, 250);
+}
+
+function publishHeatmapStats() {
+  const total = heatmapCounts.reduce((sum, count) => sum + count, 0);
+  const keys = heatmapCounts.reduce((sum, count) => sum + (count > 0 ? 1 : 0), 0);
+  emit('heatmap-stats', { total, keys }).catch(() => {});
+}
+
+function applyHeatmapKey(index) {
+  const peak = Math.max(1, Number(lastConfig?.heatmap_peak ?? 20));
+  const count = heatmapCounts[index] || 0;
+  const strength = Math.min(1, count / peak);
+  document.querySelectorAll(`.key[data-key-index="${index}"]`).forEach((el) => {
+    el.classList.toggle('heatmap-active', strength > 0);
+    el.style.setProperty('--heatmap-fill', hexToRgba(lastConfig?.heatmap_color ?? '#ff5c5c', 0.08 + strength * 0.72));
+    const count = el.querySelector('.heatmap-count');
+    if (count) {
+      count.textContent = String(heatmapCounts[index] || 0);
+      count.hidden = false;
+    }
+  });
+}
+
+function refreshHeatmap() {
+  for (let i = 0; i < heatmapCounts.length; i += 1) applyHeatmapKey(i);
+}
+
+function recordHeatmap(index) {
+  if (index < 0 || index >= heatmapCounts.length) return;
+  heatmapCounts[index] = Math.min(0xffffffff, heatmapCounts[index] + 1);
+  applyHeatmapKey(index);
+  saveHeatmap();
+  publishHeatmapStats();
+}
 
 function decorateAction(element, slotName, slot, secondary = false) {
   const isLayer = slot?.layer !== null && slot?.layer !== undefined;
@@ -36,13 +89,14 @@ function decorateAction(element, slotName, slot, secondary = false) {
 
 function computeLayout(config) {
   const pad = config.padding ?? 10;
+  const units = boardUnits(config.keyboard_halves_distance ?? 1.6);
   const availW = window.innerWidth - 2 * pad;
   const availH = window.innerHeight - 2 * pad;
-  const unit = Math.max(8, Math.min(availW / BOARD_UNITS.w, availH / BOARD_UNITS.h));
+  const unit = Math.max(8, Math.min(availW / units.w, availH / units.h));
   // Center the key grid on the board background.
-  const offX = (window.innerWidth - BOARD_UNITS.w * unit) / 2;
-  const offY = (window.innerHeight - BOARD_UNITS.h * unit) / 2;
-  return { unit, offX, offY };
+  const offX = (window.innerWidth - units.w * unit) / 2;
+  const offY = (window.innerHeight - units.h * unit) / 2;
+  return { unit, offX, offY, units };
 }
 
 export function renderBoard(layoutJson, config) {
@@ -51,9 +105,9 @@ export function renderBoard(layoutJson, config) {
   const layers = layoutJson.data.layout.revision.layers;
   const board = document.getElementById('board');
   board.innerHTML = '';
-  const { unit, offX, offY } = computeLayout(config);
+  const { unit, offX, offY, units } = computeLayout(config);
   board.style.setProperty('--key-unit', `${unit}px`);
-  const rects = keyRects();
+  const rects = keyRects(config.key_spacing ?? 0.06, config.keyboard_halves_distance ?? 1.6);
   const badge = document.createElement('div');
   badge.id = 'badge';
   badge.style.top = `${Math.max(4, offY)}px`;
@@ -61,7 +115,7 @@ export function renderBoard(layoutJson, config) {
   const offline = document.createElement('div');
   offline.id = 'offline-indicator';
   offline.textContent = 'OFFLINE';
-  offline.style.top = `${offY + (BOARD_UNITS.h * unit) / 2}px`;
+  offline.style.top = `${offY + (units.h * unit) / 2}px`;
   offline.hidden = !document.body.classList.contains('offline');
   board.appendChild(offline);
   for (const layer of layers) {
@@ -73,9 +127,21 @@ export function renderBoard(layoutJson, config) {
       const r = rects[i];
       const k = document.createElement('div');
       k.className = 'key';
+      k.dataset.keyIndex = i;
+      if (pressedKeys.has(i)) k.classList.add('pressed');
       if (i === 24 || i === 25) k.classList.add('thumb-left');
       if (i === 50 || i === 51) k.classList.add('thumb-right');
       k.style.cssText = `left:${offX + r.x * unit}px;top:${offY + r.y * unit}px;width:${r.w * unit}px;height:${r.h * unit}px`;
+      if (heatmapCounts[i]) {
+        k.classList.add('heatmap-active');
+        k.style.setProperty('--heatmap-fill', hexToRgba(config.heatmap_color ?? '#ff5c5c', 0.08 + Math.min(1, heatmapCounts[i] / Math.max(1, config.heatmap_peak ?? 20)) * 0.72));
+      }
+      if (config.show_heatmap_counts) {
+        const count = document.createElement('span');
+        count.className = 'heatmap-count';
+        count.textContent = String(heatmapCounts[i] || 0);
+        k.appendChild(count);
+      }
       if (config.use_oryx_colors && key.glowColor) k.style.background = hexTint(key.glowColor);
       const custom = key.customLabel;
       const tap = document.createElement('span');
@@ -140,9 +206,12 @@ function fontVars(style, prefix, config) {
 }
 
 function applyTheme(config) {
+  toggleMacro = Array.isArray(config.toggle_macro) ? config.toggle_macro.map(Number) : [];
   document.body.classList.toggle('show-layer-action-icons', config.show_layer_action_icons ?? true);
   document.body.classList.toggle('show-shift-icons', config.show_shift_icons ?? true);
   document.body.classList.toggle('show-alternate-action-icons', config.show_alternate_action_icons ?? true);
+  document.body.classList.toggle('show-heatmap', config.show_heatmap ?? false);
+  document.body.classList.toggle('show-heatmap-counts', config.show_heatmap_counts ?? false);
   const st = document.documentElement.style;
   st.setProperty('--board-bg', hexToRgba(config.bg_color, config.opacity));
   st.setProperty('--char-opacity', config.char_opacity);
@@ -155,7 +224,16 @@ function applyTheme(config) {
   st.setProperty('--alternate-color', config.alternate_color ?? '#ffffff');
   st.setProperty('--shift-icon-scale', config.shift_icon_scale ?? 1);
   st.setProperty('--alternate-action-icon-scale', config.alternate_action_icon_scale ?? 1);
+  st.setProperty('--heatmap-color', config.heatmap_color ?? '#ff5c5c');
   st.setProperty('--border-color', hexToRgba(config.border_color, config.border_opacity));
+  st.setProperty('--pressed-key-color', config.pressed_key_color ?? '#7ad7ff');
+  st.setProperty('--pressed-key-fill', hexToRgba(config.pressed_key_color ?? '#7ad7ff', config.pressed_key_fill_opacity ?? 0.45));
+  st.setProperty('--pressed-key-border', hexToRgba(config.pressed_key_border_color ?? config.pressed_key_color ?? '#7ad7ff', config.pressed_key_border_opacity ?? 0.85));
+  st.setProperty('--pressed-key-border-width', `${config.pressed_key_border_width ?? 1}px`);
+  st.setProperty('--key-border-radius', `${config.key_border_radius ?? 7}px`);
+  st.setProperty('--pill-border-radius', `${config.pill_border_radius ?? 999}px`);
+  st.setProperty('--key-shadow', config.show_key_shadows ? `0 2px 5px ${hexToRgba(config.key_shadow_color ?? '#ffffff', config.key_shadow_opacity ?? 0.25)}` : 'none');
+  st.setProperty('--pressed-key-shadow', config.show_pressed_key_shadow ? `0 0 10px ${hexToRgba(config.pressed_key_shadow_color ?? config.pressed_key_border_color ?? config.pressed_key_color ?? '#7ad7ff', config.pressed_key_shadow_opacity ?? 0.85)}` : 'none');
   st.setProperty('--border-width', `${config.border_width}px`);
   st.setProperty('--key-fill', hexToRgba(config.key_fill_color, config.key_fill_opacity));
   st.setProperty('--base-outline', hexToRgba(config.base_outline_color, config.base_outline_opacity));
@@ -168,6 +246,34 @@ function applyTheme(config) {
   fontVars(st, 'key', config);
   fontVars(st, 'legend', config);
   fontVars(st, 'layer_name', config);
+  refreshHeatmap();
+}
+
+function applyOverlayVisibility(payload) {
+  const hidden = !!payload?.hidden;
+  document.body.classList.toggle('overlay-hidden', hidden);
+  if (!hidden) {
+    document.body.removeAttribute('data-hide-side');
+    return;
+  }
+  const side = ['left', 'right', 'top', 'bottom'].includes(payload.side) ? payload.side : 'right';
+  const reveal = Math.max(0, Math.min(1, Number(payload.reveal ?? 0.08)));
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const keyUnit = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--key-unit')) || 32;
+  const visibleX = reveal === 0 ? 1 : Math.min(width, Math.max(width * reveal, keyUnit * 0.94));
+  const visibleY = reveal === 0 ? 1 : Math.min(height, Math.max(height * reveal, keyUnit * 0.94));
+  const st = document.documentElement.style;
+  st.setProperty('--hide-clip-left', side === 'right' ? `${width - visibleX}px` : '0px');
+  st.setProperty('--hide-clip-right', side === 'left' ? `${width - visibleX}px` : '0px');
+  st.setProperty('--hide-clip-top', side === 'bottom' ? `${height - visibleY}px` : '0px');
+  st.setProperty('--hide-clip-bottom', side === 'top' ? `${height - visibleY}px` : '0px');
+  st.setProperty('--hide-visible-x', `${visibleX}px`);
+  st.setProperty('--hide-visible-y', `${visibleY}px`);
+  st.setProperty('--hide-outline-inset', `${Math.max(4, Number(lastConfig?.padding ?? 10))}px`);
+  st.setProperty('--hide-shift-x', side === 'left' ? `-${width - visibleX}px` : side === 'right' ? `${width - visibleX}px` : '0px');
+  st.setProperty('--hide-shift-y', side === 'top' ? `-${height - visibleY}px` : side === 'bottom' ? `${height - visibleY}px` : '0px');
+  document.body.dataset.hideSide = side;
 }
 
 function hexTint(hex) {
@@ -186,6 +292,37 @@ export function setActiveLayer(n) {
   document.body.dataset.base = n === 0 ? '1' : '0';
 }
 
+export function setKeyPressed(index, pressed) {
+  const key = Number(index);
+  if (!Number.isInteger(key) || key < 0) return;
+  if (pressed) pressedKeys.add(key);
+  else pressedKeys.delete(key);
+  document.querySelectorAll(`.key[data-key-index="${key}"]`).forEach((el) => {
+    el.classList.toggle('pressed', pressed);
+  });
+}
+
+// Voyager's Oryx events contain QMK matrix coordinates.  This mirrors the
+// LAYOUT_voyager matrix map, including the staggered thumb positions, and
+// converts them to the flat Oryx layer-key order used by the renderer.
+function voyagerIndex(col, row) {
+  const matrix = [
+    [null, 0, 1, 2, 3, 4, 5],
+    [null, 6, 7, 8, 9, 10, 11],
+    [null, 12, 13, 14, 15, 16, 17],
+    [null, 18, 19, 20, 21, 22, null],
+    [null, null, null, null, 23, null, null],
+    [24, 25, null, null, null, null, null],
+    [26, 27, 28, 29, 30, 31, null],
+    [32, 33, 34, 35, 36, 37, null],
+    [38, 39, 40, 41, 42, 43, null],
+    [null, 45, 46, 47, 48, 49, null],
+    [null, null, 44, null, null, null, null],
+    [null, null, null, null, null, 50, 51],
+  ];
+  return matrix[row]?.[col] ?? null;
+}
+
 export function setOffline(off) {
   document.body.classList.toggle('offline', off);
   const indicator = document.getElementById('offline-indicator');
@@ -197,7 +334,7 @@ function showStartupError(error) {
   board.innerHTML = '';
   const msg = document.createElement('div');
   msg.id = 'startup-error';
-  msg.textContent = error ? `No layout — ${error}` : 'No layout — set Oryx URL in Settings';
+  msg.textContent = error ? `No layout — ${error}` : 'No keyboard layout detected';
   board.appendChild(msg);
 }
 
@@ -209,21 +346,78 @@ async function main() {
     lastLayer = e.payload.layer;
     setActiveLayer(lastLayer);
   });
+  await listen('key-event', (e) => {
+    // Keep the same matrix-to-visual mapping used by the pressed-key layer.
+    // The backend also sends an index, but older firmware/event payloads may
+    // omit it; col/row is the stable protocol shared by both paths.
+    const index = voyagerIndex(Number(e.payload.col), Number(e.payload.row));
+    if (index !== null && Number.isInteger(index) && e.payload.pressed) recordHeatmap(index);
+    if (index !== null) setKeyPressed(index, e.payload.pressed);
+    if (index !== null && e.payload.pressed && toggleMacro.length) {
+      const now = performance.now();
+      if (now - toggleMacroLastAt > 1000) toggleMacroBuffer = [];
+      toggleMacroLastAt = now;
+      toggleMacroBuffer.push(index);
+      if (toggleMacroBuffer.length > toggleMacro.length) toggleMacroBuffer.shift();
+      if (toggleMacroBuffer.length === toggleMacro.length && toggleMacroBuffer.every((key, i) => key === toggleMacro[i])) {
+        toggleMacroBuffer = [];
+        invoke('toggle_overlay_visibility').catch((err) => console.warn('layer-hud: toggle failed:', err));
+      }
+    }
+  });
+  await listen('heatmap-reset', () => {
+    heatmapCounts.fill(0);
+    try { localStorage.removeItem(HEATMAP_STORAGE_KEY); } catch {}
+    refreshHeatmap();
+    publishHeatmapStats();
+  });
+  await listen('heatmap-request', publishHeatmapStats);
+  await listen('keyboard-layout', async (e) => {
+    // The keyboard identifies its Oryx layout over HID.  Refreshing here
+    // keeps layout selection automatic; the backend falls back to its cache
+    // when Oryx is unreachable.
+    if (e.payload?.layout) {
+      try {
+        await invoke('refresh_layout', { url: e.payload.layout });
+      } catch (err) {
+        console.warn('layer-hud: layout refresh failed:', err);
+      }
+    }
+  });
   await listen('keymapp-offline', () => setOffline(true));
   await listen('keymapp-online', () => setOffline(false));
-  await listen('grab-mode', (e) => document.body.classList.toggle('grab', e.payload.on));
+  const setGrabCue = (on) => {
+    document.body.classList.toggle('grab', on);
+    document.querySelectorAll('.resize-handle').forEach((handle) => {
+      handle.style.display = on ? 'block' : '';
+    });
+  };
+  await listen('grab-mode', (e) => setGrabCue(!!e.payload.on));
+  await listen('overlay-visibility', (e) => applyOverlayVisibility(e.payload));
+  try {
+    setGrabCue(await invoke('is_overlay_pinned'));
+  } catch {}
   await listen('config-changed', async (e) => {
     applyTheme(e.payload);
     // Only a use_oryx_colors flip changes the DOM (glowColor tints are baked
     // in at render time); everything else is covered by the CSS vars above.
+    const distanceChanged = !!lastConfig && e.payload.keyboard_halves_distance !== lastConfig.keyboard_halves_distance;
     const needsRender = !lastConfig
       || e.payload.use_oryx_colors !== lastConfig.use_oryx_colors
-      || e.payload.padding !== lastConfig.padding;
+      || e.payload.padding !== lastConfig.padding
+      || e.payload.key_spacing !== lastConfig.key_spacing
+      || e.payload.keyboard_halves_distance !== lastConfig.keyboard_halves_distance
+      || e.payload.show_heatmap_counts !== lastConfig.show_heatmap_counts;
     if (needsRender) {
       renderBoard(await invoke('load_layout'), e.payload);
       setActiveLayer(lastLayer);
     } else {
       lastConfig = e.payload;
+    }
+    if (distanceChanged) {
+      try { await invoke('recalculate_window_geometry'); } catch (err) {
+        console.warn('layer-hud: could not recalculate window geometry:', err);
+      }
     }
   });
   await listen('layout-refreshed', async () => {
@@ -246,12 +440,16 @@ async function main() {
         renderBoard(lastLayout, lastConfig);
         setActiveLayer(lastLayer);
       }
+      if (document.body.classList.contains('overlay-hidden')) {
+        applyOverlayVisibility({ hidden: true, side: document.body.dataset.hideSide, reveal: lastConfig?.hide_reveal });
+      }
     }, 100);
   });
 
   for (const dir of ['NorthWest', 'NorthEast', 'SouthWest', 'SouthEast']) {
     const h = document.createElement('div');
     h.className = `resize-handle ${dir.toLowerCase()}`;
+    h.style.display = document.body.classList.contains('grab') ? 'block' : '';
     h.addEventListener('mousedown', (e) => {
       if (!document.body.classList.contains('grab')) return;
       e.stopPropagation();

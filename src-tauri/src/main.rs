@@ -2,10 +2,10 @@
 
 mod config;
 mod grab;
+mod hid;
 mod oryx;
 mod state;
 mod tray;
-mod watcher;
 
 use tauri::Manager;
 
@@ -29,6 +29,7 @@ fn main() {
             // overlay has ever appeared on it — start at 30% of it, centered.
             if let Ok(path) = oryx::config_path(app.handle()) {
                 let cfg = config::load(&path);
+                app.state::<state::HudState>().pinned.store(cfg.overlay_pinned, std::sync::atomic::Ordering::SeqCst);
                 *app.state::<state::HudState>().grab_combo.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = cfg.grab_combo.clone();
                 let monitors = overlay.available_monitors().unwrap_or_default();
                 // A freshly-created window's current_monitor() just reflects
@@ -57,13 +58,16 @@ fn main() {
                 }
             }
 
-            watcher::spawn(app.handle().clone());
+            hid::spawn(app.handle().clone());
             grab::spawn(app.handle().clone());
             tray::build(app.handle())?;
             Ok(())
         })
         .on_window_event(|window, event| {
             if window.label() != "overlay" {
+                return;
+            }
+            if window.app_handle().state::<state::HudState>().overlay_hidden.load(std::sync::atomic::Ordering::SeqCst) {
                 return;
             }
             if matches!(event, tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_)) {
@@ -78,7 +82,11 @@ fn main() {
                     // current center, so dragging any corner grows/shrinks it
                     // without making the overlay drift or distort its padding.
                     if matches!(event, tauri::WindowEvent::Resized(_)) {
-                        let ratio = 13.6_f64 / 6.0_f64;
+                        let half_distance = oryx::config_path(&app)
+                            .ok()
+                            .map(|path| config::load(&path).keyboard_halves_distance)
+                            .unwrap_or(1.6);
+                        let ratio = (12.0 + half_distance) / 6.0;
                         let target_h = size.width / ratio;
                         if (target_h - size.height).abs() > 1.0 {
                             size.height = target_h.max(120.0);
@@ -106,6 +114,11 @@ fn main() {
             oryx::get_config,
             oryx::set_config,
             oryx::clear_window_position,
+            oryx::align_window,
+            oryx::reset_window_positions,
+            oryx::recalculate_window_geometry,
+            oryx::is_overlay_pinned,
+            oryx::toggle_overlay_visibility,
             oryx::is_keymapp_online,
             oryx::export_config,
             oryx::import_config,

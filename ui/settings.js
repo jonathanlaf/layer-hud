@@ -1,4 +1,5 @@
 const { invoke } = window.__TAURI__.core;
+const { listen, emit } = window.__TAURI__.event;
 
 let cfg = await invoke('get_config');
 const $ = (id) => document.getElementById(id);
@@ -17,7 +18,7 @@ async function resetAllSettings() {
 window.resetAllSettings = resetAllSettings;
 
 const tabSections = new Map([
-  ['layout', 'General'], ['appearance', 'Appearance'], ['colors', 'Colors'], ['fonts', 'Fonts'],
+  ['layout', 'General'], ['appearance', 'Appearance'], ['fonts', 'Fonts'],
   ['interaction', 'Interaction'], ['position', 'Position'],
 ]);
 const headings = [...document.querySelectorAll('h2')];
@@ -60,7 +61,6 @@ const MOD_LABELS = { cmd: '⌘', alt: '⌥', ctrl: '⌃', shift: '⇧' };
 const MOD_ORDER = ['cmd', 'alt', 'ctrl', 'shift'];
 const comboText = (arr) => arr.map((m) => MOD_LABELS[m]).join('') || '—';
 
-$('oryx').value = cfg.oryx_url;
 $('bg-color').value = cfg.bg_color;
 $('key-fill-color').value = cfg.key_fill_color;
 $('text-color').value = cfg.text_color;
@@ -68,11 +68,28 @@ $('legend-color').value = cfg.legend_color;
 $('shift-color').value = cfg.shift_color;
 $('alternate-color').value = cfg.alternate_color;
 $('border-color').value = cfg.border_color;
+$('pressed-key-color').value = cfg.pressed_key_color;
+$('pressed-key-border-color').value = cfg.pressed_key_border_color;
+$('key-shadow-color').value = cfg.key_shadow_color;
+$('pressed-key-shadow-color').value = cfg.pressed_key_shadow_color;
+$('heatmap-color').value = cfg.heatmap_color;
+$('base-outline-color').value = cfg.base_outline_color;
+$('grab-outline-color').value = cfg.grab_outline_color;
 $('colors-toggle').checked = cfg.use_oryx_colors;
 $('layer-action-icons').checked = cfg.show_layer_action_icons;
 $('shift-icons').checked = cfg.show_shift_icons;
 $('alternate-action-icons').checked = cfg.show_alternate_action_icons;
+$('heatmap-toggle').checked = cfg.show_heatmap;
+$('heatmap-counts-toggle').checked = cfg.show_heatmap_counts;
+$('key-shadows').checked = cfg.show_key_shadows;
+$('pressed-key-shadow').checked = cfg.show_pressed_key_shadow;
+$('base-outline-enabled').checked = cfg.base_outline_enabled;
+$('grab-outline-enabled').checked = cfg.grab_outline_enabled;
 $('combo-display').textContent = comboText(cfg.grab_combo);
+$('hide-side').value = cfg.hide_side;
+
+const macroLabel = (macro) => macro?.length ? macro.map((index) => `Key ${index}`).join(' → ') : 'Not configured';
+$('toggle-macro-display').textContent = macroLabel(cfg.toggle_macro);
 
 // Serialized so rapid-fire commits (e.g. fast typing, each one a separate
 // read-modify-write) can never resolve out of order and let a stale value
@@ -109,6 +126,13 @@ bind('legend-color', 'legend_color');
 bind('shift-color', 'shift_color');
 bind('alternate-color', 'alternate_color');
 bind('border-color', 'border_color');
+bind('pressed-key-color', 'pressed_key_color');
+bind('pressed-key-border-color', 'pressed_key_border_color');
+bind('key-shadow-color', 'key_shadow_color');
+bind('pressed-key-shadow-color', 'pressed_key_shadow_color');
+bind('heatmap-color', 'heatmap_color');
+bind('base-outline-color', 'base_outline_color');
+bind('grab-outline-color', 'grab_outline_color');
 
 // Numeric settings: slider + manual text entry, kept in sync both ways.
 // Every keystroke commits immediately (like the slider) so a value typed
@@ -181,9 +205,25 @@ for (const [id, field] of [
   ['padding', 'padding'],
   ['shift-icon-scale', 'shift_icon_scale'],
   ['alternate-action-icon-scale', 'alternate_action_icon_scale'],
+  ['heatmap-peak', 'heatmap_peak'],
   ['key-font-size', 'key_font_size'],
   ['legend-font-size', 'legend_font_size'],
   ['layer-name-font-size', 'layer_name_font_size'],
+  ['pressed-key-fill-opacity', 'pressed_key_fill_opacity'],
+  ['pressed-key-border-opacity', 'pressed_key_border_opacity'],
+  ['pressed-key-border-width', 'pressed_key_border_width'],
+  ['base-outline-opacity', 'base_outline_opacity'],
+  ['base-outline-width', 'base_outline_width'],
+  ['grab-outline-opacity', 'grab_outline_opacity'],
+  ['grab-outline-width', 'grab_outline_width'],
+  ['key-border-radius', 'key_border_radius'],
+  ['pill-border-radius', 'pill_border_radius'],
+  ['key-shadow-opacity', 'key_shadow_opacity'],
+  ['pressed-key-shadow-opacity', 'pressed_key_shadow_opacity'],
+  ['key-spacing', 'key_spacing'],
+  ['keyboard-halves-distance', 'keyboard_halves_distance'],
+  ['hide-reveal', 'hide_reveal'],
+  ['hide-animation-ms', 'hide_animation_ms'],
 ]) bindNumeric(id, field);
 
 for (const prefix of ['key', 'legend', 'layer_name']) {
@@ -206,6 +246,59 @@ $('shift-icons').addEventListener('change', (e) => {
 
 $('alternate-action-icons').addEventListener('change', (e) => {
   commit('show_alternate_action_icons', e.target.checked);
+});
+const syncHeatmapControls = (enabled) => {
+  $('heatmap-peak').disabled = !enabled;
+  $('heatmap-peak-val').disabled = !enabled;
+};
+syncHeatmapControls(cfg.show_heatmap);
+$('heatmap-toggle').addEventListener('change', (e) => {
+  syncHeatmapControls(e.target.checked);
+  commit('show_heatmap', e.target.checked);
+});
+$('heatmap-counts-toggle').addEventListener('change', (e) => commit('show_heatmap_counts', e.target.checked));
+$('heatmap-reset').addEventListener('click', async () => {
+  try {
+    await emit('heatmap-reset');
+    $('heatmap-reset').textContent = 'Reset';
+  } catch (err) {
+    $('heatmap-reset').textContent = 'Failed';
+    setTimeout(() => { $('heatmap-reset').textContent = 'Reset'; }, 1200);
+  }
+});
+await listen('heatmap-stats', (event) => {
+  const total = Number(event.payload?.total ?? 0);
+  const keys = Number(event.payload?.keys ?? 0);
+  $('heatmap-count').textContent = `${total.toLocaleString()} presses · ${keys} keys`;
+});
+try { await emit('heatmap-request'); } catch {}
+$('key-shadows').addEventListener('change', (e) => commit('show_key_shadows', e.target.checked));
+$('pressed-key-shadow').addEventListener('change', (e) => commit('show_pressed_key_shadow', e.target.checked));
+$('base-outline-enabled').addEventListener('change', (e) => commit('base_outline_enabled', e.target.checked));
+$('grab-outline-enabled').addEventListener('change', (e) => commit('grab_outline_enabled', e.target.checked));
+$('hide-side').addEventListener('change', (e) => commit('hide_side', e.target.value));
+
+let toggleMacroRecording = false;
+let recordedToggleMacro = [];
+$('toggle-macro-record').addEventListener('click', () => {
+  toggleMacroRecording = true;
+  recordedToggleMacro = [];
+  $('toggle-macro-display').textContent = 'Recording…';
+  $('toggle-macro-record').disabled = true;
+  $('toggle-macro-stop').disabled = false;
+});
+$('toggle-macro-stop').addEventListener('click', async () => {
+  toggleMacroRecording = false;
+  cfg.toggle_macro = recordedToggleMacro;
+  await push();
+  $('toggle-macro-display').textContent = macroLabel(cfg.toggle_macro);
+  $('toggle-macro-record').disabled = false;
+  $('toggle-macro-stop').disabled = true;
+});
+await listen('key-event', (event) => {
+  if (!toggleMacroRecording || !event.payload?.pressed || event.payload.index == null) return;
+  recordedToggleMacro.push(Number(event.payload.index));
+  $('toggle-macro-display').textContent = macroLabel(recordedToggleMacro);
 });
 
 try {
@@ -263,8 +356,26 @@ for (const type of ['keydown', 'keyup']) {
   });
 }
 
+async function alignWindow(axis) {
+  try {
+    await invoke('align_window', { axis });
+  } catch (err) {
+    console.warn('layer-hud: could not align window:', err);
+  }
+}
+$('center-horizontal').addEventListener('click', () => alignWindow('horizontal'));
+$('center-vertical').addEventListener('click', () => alignWindow('vertical'));
+$('center-both').addEventListener('click', () => alignWindow('both'));
 $('reset-position').addEventListener('click', async () => {
-  await invoke('clear_window_position');
+  const status = $('settings-data-status');
+  if (status) status.textContent = 'Resetting overlay positions…';
+  try {
+    await invoke('reset_window_positions');
+    if (status) status.textContent = 'Overlay positions reset to center.';
+  } catch (err) {
+    if (status) status.textContent = `Position reset failed: ${err}`;
+    console.warn('layer-hud: could not reset window positions:', err);
+  }
 });
 
 $('export-settings').addEventListener('click', async () => {
@@ -292,20 +403,4 @@ document.addEventListener('click', (event) => {
     event.preventDefault();
     if (confirm('Reset all settings to defaults?')) resetAllSettings();
   }
-});
-
-$('apply-url').addEventListener('click', async () => {
-  $('url-status-row').hidden = false;
-  $('url-status').textContent = '…';
-  $('url-status').className = 'status';
-  try {
-    const res = await invoke('refresh_layout', { url: $('oryx').value });
-    cfg = await invoke('get_config');
-    $('url-status').textContent = res.stale ? 'offline — using cache' : 'applied';
-    $('url-status').className = res.stale ? 'status error' : 'status ok';
-  } catch (err) {
-    $('url-status').textContent = String(err);
-    $('url-status').className = 'status error';
-  }
-  $('url-status-row').hidden = false;
 });

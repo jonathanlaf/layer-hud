@@ -19,12 +19,21 @@ pub struct Config {
     pub border_opacity: f64,
     pub border_width: f64,
     pub grab_combo: Vec<String>,
+    pub overlay_pinned: bool,
+    pub toggle_macro: Vec<u8>,
+    pub hide_side: String,
+    pub hide_reveal: f64,
+    pub hide_animation_ms: f64,
     pub use_oryx_colors: bool,
     pub show_layer_action_icons: bool,
     pub show_shift_icons: bool,
     pub shift_icon_scale: f64,
     pub show_alternate_action_icons: bool,
     pub alternate_action_icon_scale: f64,
+    pub show_heatmap: bool,
+    pub show_heatmap_counts: bool,
+    pub heatmap_color: String,
+    pub heatmap_peak: f64,
     pub key_fill_color: String,
     pub key_fill_opacity: f64,
     pub padding: f64,
@@ -34,6 +43,21 @@ pub struct Config {
     pub shift_color: String,
     pub alternate_color: String,
     pub border_color: String,
+    pub pressed_key_color: String,
+    pub pressed_key_fill_opacity: f64,
+    pub pressed_key_border_color: String,
+    pub pressed_key_border_opacity: f64,
+    pub pressed_key_border_width: f64,
+    pub key_border_radius: f64,
+    pub pill_border_radius: f64,
+    pub show_key_shadows: bool,
+    pub show_pressed_key_shadow: bool,
+    pub key_shadow_color: String,
+    pub pressed_key_shadow_color: String,
+    pub key_shadow_opacity: f64,
+    pub pressed_key_shadow_opacity: f64,
+    pub key_spacing: f64,
+    pub keyboard_halves_distance: f64,
     pub base_outline_enabled: bool,
     pub base_outline_color: String,
     pub base_outline_opacity: f64,
@@ -66,18 +90,29 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            oryx_url: "Br3gO".into(),
+            // Populated from the keyboard's Oryx HID identity; there is no
+            // user-entered layout URL anymore.
+            oryx_url: String::new(),
             opacity: 0.85,
             char_opacity: 1.0,
             border_opacity: 0.35,
             border_width: 1.0,
             grab_combo: vec!["cmd".into(), "alt".into()],
+            overlay_pinned: false,
+            toggle_macro: Vec::new(),
+            hide_side: "right".into(),
+            hide_reveal: 0.08,
+            hide_animation_ms: 220.0,
             use_oryx_colors: true,
             show_layer_action_icons: true,
             show_shift_icons: true,
             shift_icon_scale: 1.0,
             show_alternate_action_icons: true,
             alternate_action_icon_scale: 1.0,
+            show_heatmap: false,
+            show_heatmap_counts: false,
+            heatmap_color: "#ff5c5c".into(),
+            heatmap_peak: 20.0,
             key_fill_color: "#ffffff".into(),
             key_fill_opacity: 0.0,
             padding: 10.0,
@@ -87,6 +122,21 @@ impl Default for Config {
             shift_color: "#ffffff".into(),
             alternate_color: "#ffffff".into(),
             border_color: "#ffffff".into(),
+            pressed_key_color: "#7ad7ff".into(),
+            pressed_key_fill_opacity: 0.45,
+            pressed_key_border_color: "#7ad7ff".into(),
+            pressed_key_border_opacity: 0.85,
+            pressed_key_border_width: 1.0,
+            key_border_radius: 7.0,
+            pill_border_radius: 999.0,
+            show_key_shadows: false,
+            show_pressed_key_shadow: true,
+            key_shadow_color: "#ffffff".into(),
+            pressed_key_shadow_color: "#7ad7ff".into(),
+            key_shadow_opacity: 0.25,
+            pressed_key_shadow_opacity: 0.85,
+            key_spacing: 0.06,
+            keyboard_halves_distance: 1.6,
             base_outline_enabled: true, base_outline_color: "#78b4ff".into(), base_outline_opacity: 0.6, base_outline_width: 2.0,
             grab_outline_enabled: true, grab_outline_color: "#ffdc78".into(), grab_outline_opacity: 0.9, grab_outline_width: 2.0,
             key_font_family: "".into(), key_font_size: 1.0, key_font_bold: false, key_font_italic: false, key_font_ligatures: false,
@@ -114,10 +164,22 @@ impl Config {
         self.padding = self.padding.clamp(0.0, 60.0);
         self.shift_icon_scale = self.shift_icon_scale.clamp(0.5, 2.5);
         self.alternate_action_icon_scale = self.alternate_action_icon_scale.clamp(0.5, 2.5);
+        self.heatmap_peak = self.heatmap_peak.clamp(1.0, 1000.0);
         self.base_outline_opacity = self.base_outline_opacity.clamp(0.0, 1.0);
         self.base_outline_width = self.base_outline_width.clamp(0.0, 5.0);
         self.grab_outline_opacity = self.grab_outline_opacity.clamp(0.0, 1.0);
         self.grab_outline_width = self.grab_outline_width.clamp(0.0, 5.0);
+        self.pressed_key_fill_opacity = self.pressed_key_fill_opacity.clamp(0.0, 1.0);
+        self.pressed_key_border_opacity = self.pressed_key_border_opacity.clamp(0.0, 1.0);
+        self.pressed_key_border_width = self.pressed_key_border_width.clamp(0.0, 5.0);
+        self.key_border_radius = self.key_border_radius.clamp(0.0, 30.0);
+        self.pill_border_radius = self.pill_border_radius.clamp(0.0, 999.0);
+        self.key_shadow_opacity = self.key_shadow_opacity.clamp(0.0, 1.0);
+        self.pressed_key_shadow_opacity = self.pressed_key_shadow_opacity.clamp(0.0, 1.0);
+        self.key_spacing = self.key_spacing.clamp(0.0, 0.25);
+        self.keyboard_halves_distance = self.keyboard_halves_distance.clamp(0.25, 20.0);
+        self.hide_reveal = self.hide_reveal.clamp(0.0, 1.0);
+        self.hide_animation_ms = self.hide_animation_ms.clamp(0.0, 1000.0);
         self.key_font_size = self.key_font_size.clamp(0.5, 2.0);
         self.legend_font_size = self.legend_font_size.clamp(0.5, 2.0);
         self.layer_name_font_size = self.layer_name_font_size.clamp(8.0, 24.0);
@@ -163,7 +225,7 @@ mod tests {
     #[test]
     fn default_config_values() {
         let c = Config::default();
-        assert_eq!(c.oryx_url, "Br3gO");
+        assert!(c.oryx_url.is_empty());
         assert_eq!(c.opacity, 0.85);
         assert_eq!(c.grab_combo, vec!["cmd".to_string(), "alt".to_string()]);
         assert!(c.use_oryx_colors);

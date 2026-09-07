@@ -2,10 +2,18 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
 #board { color: var(--text-color, #fff); font: 13px -apple-system, sans-serif;
          background: var(--board-bg, rgba(20, 20, 24, 0.85));
          border-radius: 12px; position: fixed; inset: 0; overflow: hidden; }
+body.overlay-hidden #board { clip-path: inset(var(--hide-clip-top, 0px) var(--hide-clip-right, 0px) var(--hide-clip-bottom, 0px) var(--hide-clip-left, 0px)); }
+body.overlay-hidden #board .layer { transform: translate(var(--hide-shift-x, 0px), var(--hide-shift-y, 0px)); }
+body.overlay-hidden #board #badge,
+body.overlay-hidden #board #offline-indicator { visibility: hidden; }
+body.overlay-hidden[data-hide-side="left"] #board { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+body.overlay-hidden[data-hide-side="right"] #board { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+body.overlay-hidden[data-hide-side="top"] #board { border-top-left-radius: 0; border-top-right-radius: 0; }
+body.overlay-hidden[data-hide-side="bottom"] #board { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
 .layer { display: none; }
 .layer.active { display: block; }
-.key { position: absolute; border: var(--border-width, 1px) solid var(--border-color, rgba(255,255,255,0.35)); border-radius: 7px;
-       box-sizing: border-box; text-align: center; background: var(--key-fill, transparent); }
+.key { position: absolute; border: var(--border-width, 1px) solid var(--border-color, rgba(255,255,255,0.35)); border-radius: var(--key-border-radius, 7px);
+       box-sizing: border-box; text-align: center; background: var(--key-fill, transparent); box-shadow: var(--key-shadow, none); }
 .key .tap { position: absolute; inset: 0; display: flex; align-items: center;
             justify-content: center; font-size: calc(var(--key-unit, 62px) * 0.258);
             color: var(--text-color, #fff); opacity: var(--char-opacity, 1); }
@@ -20,6 +28,7 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
 .key .alternate-action { color: var(--alternate-color, #fff); }
 .key .layer-action { color: var(--legend-color, #fff); }
 .key.trigger-active { border-color: #ffd479; box-shadow: 0 0 6px #ffd479; }
+.key.pressed { border: var(--pressed-key-border-width, 1px) solid var(--pressed-key-border, rgba(122,215,255,0.85)); box-shadow: var(--pressed-key-shadow, none); background: var(--pressed-key-fill, rgba(122,215,255,0.45)); }
 .layer-action-icon, .alternate-action-icon, .shift-icon { display: none; }
 body.show-layer-action-icons .layer-action-icon,
 body.show-alternate-action-icons .alternate-action-icon,
@@ -40,22 +49,108 @@ body.show-shift-icons .shift-icon {
   height: calc(0.85em * var(--shift-icon-scale, 1)); vertical-align: baseline;
 }
 .shift-icon { --action-icon: url('icons/shift.svg'); margin-right: 0.15em; }
-#badge { position: absolute; top: 7px; left: 50%; transform: translateX(-50%); z-index: 3; font-size: var(--layer-name-font-size, 11px); color: var(--layer-name-color, #fff); opacity: var(--layer-name-opacity, 1); padding: 3px 10px; border-radius: 999px; background: var(--key-fill, transparent); border: 1px solid var(--layer-name-border, rgba(255,255,255,0.35)); white-space: nowrap; }
+#badge { position: absolute; top: 7px; left: 50%; transform: translateX(-50%); z-index: 3; font-size: var(--layer-name-font-size, 11px); color: var(--layer-name-color, #fff); opacity: var(--layer-name-opacity, 1); padding: 3px 10px; border-radius: var(--pill-border-radius, 999px); background: var(--key-fill, transparent); border: 1px solid var(--layer-name-border, rgba(255,255,255,0.35)); white-space: nowrap; }
 #startup-error { position: absolute; inset: 0; display: flex; align-items: center;
                  justify-content: center; text-align: center; padding: 12px;
                  font-size: 13px; opacity: 0.9; }
-body[data-base="0"] #board { outline: 2px solid rgba(120,180,255,0.6); outline-offset: -2px; }
+body[data-base="0"] #board { outline: var(--base-outline-width, 2px) solid var(--base-outline, rgba(120,180,255,0.6)); outline-offset: -2px; }
 body.offline .layer { opacity: 0.4; }
 body.offline #badge { opacity: calc(var(--layer-name-opacity, 1) * 0.4); }
-#offline-indicator { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 4; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: #fff; background: #d92c2c; border: 1px solid rgba(255,255,255,0.65); }
+#offline-indicator { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 4; padding: 4px 10px; border-radius: var(--pill-border-radius, 999px); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: #fff; background: #d92c2c; border: 1px solid rgba(255,255,255,0.65); }
 #offline-indicator[hidden] { display: none; }
 .key.thumb-left { transform: rotate(15deg); transform-origin: center; }
 .key.thumb-right { transform: rotate(-15deg); transform-origin: center; }
-body.grab #board { outline: 2px solid rgba(255,220,120,0.9); outline-offset: -2px; }
+body.grab #board { outline: var(--grab-outline-width, 2px) solid var(--grab-outline, rgba(255,220,120,0.9)); outline-offset: -2px; }
+/* When clipped, the normal outline belongs to the hidden full-size board.
+   Re-draw only the visible strip so its exposed edge remains clear. */
+body.overlay-hidden.grab #board { outline: none; }
+body.overlay-hidden.grab #board::after {
+  content: "";
+  position: absolute;
+  z-index: 20;
+  pointer-events: none;
+  box-sizing: border-box;
+  border: var(--grab-outline-width, 2px) solid var(--grab-outline, rgba(255,220,120,0.9));
+}
+body.overlay-hidden.grab[data-hide-side="left"] #board::after {
+  left: 0; top: 0; bottom: 0; width: var(--hide-visible-x);
+  border-left: none;
+  border-radius: 0 12px 12px 0;
+}
+body.overlay-hidden.grab[data-hide-side="right"] #board::after {
+  right: 0; top: 0; bottom: 0; width: var(--hide-visible-x);
+  border-right: none;
+  border-radius: 12px 0 0 12px;
+}
+body.overlay-hidden.grab[data-hide-side="top"] #board::after {
+  left: 0; right: 0; top: 0; height: var(--hide-visible-y);
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+}
+body.overlay-hidden.grab[data-hide-side="bottom"] #board::after {
+  left: 0; right: 0; bottom: 0; height: var(--hide-visible-y);
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+}
 .resize-handle { display: none; position: fixed; width: 18px; height: 18px; z-index: 10;
-                 border: 2px solid rgba(255,220,120,0.9); }
+                 border: var(--grab-outline-width, 2px) solid var(--grab-outline, rgba(255,220,120,0.9)); }
 body.grab .resize-handle { display: block; }
-.resize-handle.northwest { top: 0; left: 0; border-right: none; border-bottom: none; cursor: nwse-resize; }
-.resize-handle.northeast { top: 0; right: 0; border-left: none; border-bottom: none; cursor: nesw-resize; }
-.resize-handle.southwest { bottom: 0; left: 0; border-right: none; border-top: none; cursor: nesw-resize; }
-.resize-handle.southeast { bottom: 0; right: 0; border-left: none; border-top: none; cursor: nwse-resize; }
+.resize-handle.northwest { top: 5px; left: 5px; border-right: none; border-bottom: none; cursor: nwse-resize; }
+.resize-handle.northeast { top: 5px; right: 5px; border-left: none; border-bottom: none; cursor: nesw-resize; }
+.resize-handle.southwest { bottom: 5px; left: 5px; border-right: none; border-top: none; cursor: nesw-resize; }
+.resize-handle.southeast { bottom: 5px; right: 5px; border-left: none; border-top: none; cursor: nwse-resize; }
+/* Hidden overlays only expose resize handles while grab mode is active. */
+body.overlay-hidden:not(.grab) .resize-handle { display: none !important; }
+body.overlay-hidden.grab .resize-handle {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 100 !important;
+  pointer-events: auto !important;
+}
+
+/* Keep only the handles on the side that remains visible. */
+body.overlay-hidden.grab[data-hide-side="left"] .resize-handle.northwest,
+body.overlay-hidden.grab[data-hide-side="left"] .resize-handle.southwest,
+body.overlay-hidden.grab[data-hide-side="right"] .resize-handle.northeast,
+body.overlay-hidden.grab[data-hide-side="right"] .resize-handle.southeast,
+body.overlay-hidden.grab[data-hide-side="top"] .resize-handle.northwest,
+body.overlay-hidden.grab[data-hide-side="top"] .resize-handle.northeast,
+body.overlay-hidden.grab[data-hide-side="bottom"] .resize-handle.southwest,
+body.overlay-hidden.grab[data-hide-side="bottom"] .resize-handle.southeast {
+  display: none !important;
+}
+
+/* Position the surviving handles at the clipped keyboard edge. */
+body.overlay-hidden.grab[data-hide-side="left"] .resize-handle.northeast,
+body.overlay-hidden.grab[data-hide-side="left"] .resize-handle.southeast {
+  left: calc(var(--hide-visible-x) - 28px); right: auto;
+}
+body.overlay-hidden.grab[data-hide-side="right"] .resize-handle.northwest,
+body.overlay-hidden.grab[data-hide-side="right"] .resize-handle.southwest {
+  left: calc(100% - var(--hide-visible-x) + 10px); right: auto;
+}
+body.overlay-hidden.grab[data-hide-side="top"] .resize-handle.southwest,
+body.overlay-hidden.grab[data-hide-side="top"] .resize-handle.southeast {
+  top: calc(var(--hide-visible-y) - 28px); bottom: auto;
+}
+body.overlay-hidden.grab[data-hide-side="bottom"] .resize-handle.northwest,
+body.overlay-hidden.grab[data-hide-side="bottom"] .resize-handle.northeast {
+  top: calc(100% - var(--hide-visible-y) + 10px); bottom: auto;
+}
+
+body.show-heatmap .key.heatmap-active {
+  background: var(--heatmap-fill, rgba(255, 92, 92, 0.2)) !important;
+}
+.heatmap-count {
+  position: absolute;
+  right: 3px;
+  bottom: 2px;
+  z-index: 2;
+  font-size: calc(var(--key-unit, 62px) * 0.11);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-color, #fff);
+  opacity: 0.8;
+  pointer-events: none;
+}
