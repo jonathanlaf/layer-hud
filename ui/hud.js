@@ -384,8 +384,8 @@ async function main() {
       }
     }
   });
-  await listen('keymapp-offline', () => setOffline(true));
-  await listen('keymapp-online', () => setOffline(false));
+  await listen('keyboard-offline', () => setOffline(true));
+  await listen('keyboard-online', () => setOffline(false));
   const setGrabCue = (on) => {
     document.body.classList.toggle('grab', on);
     document.querySelectorAll('.resize-handle').forEach((handle) => {
@@ -424,7 +424,7 @@ async function main() {
     renderBoard(await invoke('load_layout'), await invoke('get_config'));
     setActiveLayer(lastLayer);
   });
-  try { setOffline(!(await invoke('is_keymapp_online'))); } catch {}
+  try { setOffline(!(await invoke('is_keyboard_online'))); } catch {}
   document.getElementById('board').addEventListener('mousedown', (e) => {
     if (document.body.classList.contains('grab')) {
       window.__TAURI__.window.getCurrentWindow().startDragging();

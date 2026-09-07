@@ -119,7 +119,7 @@ fn main() {
             oryx::recalculate_window_geometry,
             oryx::is_overlay_pinned,
             oryx::toggle_overlay_visibility,
-            oryx::is_keymapp_online,
+            oryx::is_keyboard_online,
             oryx::export_config,
             oryx::import_config,
             oryx::reset_config,

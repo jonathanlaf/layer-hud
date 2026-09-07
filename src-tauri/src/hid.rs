@@ -1,7 +1,6 @@
 //! Direct ZSA Oryx WebHID watcher.
 //!
-//! Keymapp's local gRPC API exposes status/control operations but not the
-//! live key stream.  The keyboard itself exposes that stream on its Oryx Raw
+//! The keyboard exposes its live key stream on its Oryx Raw
 //! HID collection, so this watcher talks to the Voyager directly.
 
 use hidapi::{HidApi, HidDevice};
@@ -52,9 +51,9 @@ fn emit_online(app: &AppHandle, online: &mut bool) {
     if !*online {
         *online = true;
         app.state::<crate::state::HudState>()
-            .keymapp_online
+            .keyboard_online
             .store(true, std::sync::atomic::Ordering::SeqCst);
-        let _ = app.emit("keymapp-online", json!({}));
+        let _ = app.emit("keyboard-online", json!({}));
     }
 }
 
@@ -62,9 +61,9 @@ fn emit_offline(app: &AppHandle, online: &mut bool) {
     if *online {
         *online = false;
         app.state::<crate::state::HudState>()
-            .keymapp_online
+            .keyboard_online
             .store(false, std::sync::atomic::Ordering::SeqCst);
-        let _ = app.emit("keymapp-offline", json!({}));
+        let _ = app.emit("keyboard-offline", json!({}));
     }
 }
 

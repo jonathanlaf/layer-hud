@@ -440,8 +440,8 @@ pub fn reset_config(app: AppHandle) -> Result<crate::config::Config, String> {
 }
 
 #[tauri::command]
-pub fn is_keymapp_online(app: AppHandle) -> bool {
-    app.state::<crate::state::HudState>().keymapp_online.load(std::sync::atomic::Ordering::SeqCst)
+pub fn is_keyboard_online(app: AppHandle) -> bool {
+    app.state::<crate::state::HudState>().keyboard_online.load(std::sync::atomic::Ordering::SeqCst)
 }
 
 fn chrono_free_now() -> String {

@@ -11,11 +11,11 @@ pub struct HudState {
     pub pinned: AtomicBool,
     pub config_lock: Mutex<()>,
     /// grab_combo only, kept in sync by oryx::update_config on every write,
-    /// so grab.rs's 10Hz poll loop (runs forever regardless of Keymapp
+    /// so grab.rs's 10Hz poll loop (runs forever regardless of keyboard
     /// connectivity) doesn't need to read and fully deserialize config.json
     /// from disk on every tick just to check a value that rarely changes.
     pub grab_combo: Mutex<Vec<String>>,
-    pub keymapp_online: AtomicBool,
+    pub keyboard_online: AtomicBool,
     pub overlay_hidden: AtomicBool,
     pub hidden_rect: Mutex<Option<WindowRect>>,
 }
@@ -26,7 +26,7 @@ impl HudState {
             pinned: AtomicBool::new(false),
             config_lock: Mutex::new(()),
             grab_combo: Mutex::new(Vec::new()),
-            keymapp_online: AtomicBool::new(true),
+            keyboard_online: AtomicBool::new(true),
             overlay_hidden: AtomicBool::new(false),
             hidden_rect: Mutex::new(None),
         }
