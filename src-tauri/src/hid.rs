@@ -8,7 +8,7 @@ use hidapi::{HidApi, HidDevice};
 use serde_json::json;
 use std::thread;
 use std::time::Duration;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 const ORYX_USAGE_PAGE: u16 = 0xff60;
 const ORYX_USAGE: u16 = 0x61;
@@ -84,7 +84,7 @@ fn emit_layout_identity(app: &AppHandle, device: &HidDevice) {
     }
 }
 
-fn handle_packet(app: &AppHandle, packet: &[u8]) {
+fn handle_packet<R: Runtime>(app: &AppHandle<R>, packet: &[u8]) {
     if packet.is_empty() {
         return;
     }
@@ -164,12 +164,12 @@ pub fn spawn(app: AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::handle_packet;
-    use tauri::test::{mock_app, noop_assets};
+    use tauri::test::mock_app;
 
     #[test]
     fn key_packets_are_decoded() {
-        let app = mock_app(noop_assets());
-        handle_packet(&app, &[0x06, 17]);
-        handle_packet(&app, &[0x07, 17]);
+        let app = mock_app();
+        handle_packet(app.handle(), &[0x06, 17]);
+        handle_packet(app.handle(), &[0x07, 17]);
     }
 }
