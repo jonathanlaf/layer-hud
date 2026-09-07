@@ -12,7 +12,6 @@ This project is fully vibe coded as an experiment in building a useful native ut
 ## Prerequisites
 
 - A connected ZSA Voyager keyboard with its Oryx HID interface available
-- **protoc** (Protocol Buffers compiler): `brew install protobuf`
 - **Rust** and **Cargo**: Install from [rustup.rs](https://rustup.rs)
 - **tauri-cli**: `cargo install tauri-cli --locked`
 
